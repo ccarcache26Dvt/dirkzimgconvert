@@ -1,5 +1,3 @@
-import heic2any from "heic2any";
-
 export type TargetFormat = "jpg" | "png" | "webp" | "tiff";
 
 export const VIDEO_EXTENSIONS = [
@@ -42,6 +40,10 @@ function extFor(format: TargetFormat): string {
 }
 
 async function decodeHeic(file: File): Promise<Blob> {
+  if (typeof window === "undefined") {
+    throw new Error("La conversión HEIC solo está disponible en el navegador");
+  }
+  const { default: heic2any } = await import("heic2any");
   const result = await heic2any({ blob: file, toType: "image/png" });
   return Array.isArray(result) ? result[0] : result;
 }
