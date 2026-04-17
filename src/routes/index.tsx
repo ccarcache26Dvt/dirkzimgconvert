@@ -1,26 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ImageConverter } from "@/components/ImageConverter";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      { title: "Convertidor de Imágenes — JPG, PNG, HEIC, TIFF" },
+      {
+        name: "description",
+        content:
+          "Convierte imágenes y carpetas completas a JPG, PNG, WebP o TIFF directamente en tu navegador. Rápido y privado.",
+      },
+    ],
+  }),
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
 function Index() {
-  return <PlaceholderIndex />;
+  return (
+    <>
+      <ImageConverter />
+      <Toaster richColors position="top-center" />
+    </>
+  );
 }
