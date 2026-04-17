@@ -19,6 +19,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import logoRoyal from "@/assets/logo-royal.png";
 
 type ConvertedItem = {
   id: string;
@@ -268,6 +269,11 @@ export function ImageConverter() {
           <ThemeToggle />
         </div>
         <header className="mb-12 text-center">
+          <img
+            src={logoRoyal}
+            alt="Royal Dirkz Group"
+            className="mx-auto mb-6 h-20 w-auto md:h-24"
+          />
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
             Convertidor en el navegador · 100% privado
