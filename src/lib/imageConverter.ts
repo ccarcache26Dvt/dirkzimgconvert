@@ -106,3 +106,57 @@ export async function convertImage(
   const finalExt = format === "tiff" ? "png" : extFor(format);
   return { blob, filename: `${baseName}.${finalExt}` };
 }
+
+export async function compressImage(
+  file: File,
+  quality: number,
+  maxWidth?: number,
+): Promise<{ blob: Blob; filename: string; originalSize: number; newSize: number }> {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  let sourceBlob: Blob = file;
+
+  if (ext === "heic" || ext === "heif" || file.type === "image/heic" || file.type === "image/heif") {
+    sourceBlob = await decodeHeic(file);
+  }
+
+  const img = await blobToImage(sourceBlob);
+  let w = img.naturalWidth;
+  let h = img.naturalHeight;
+  if (maxWidth && w > maxWidth) {
+    h = Math.round((h * maxWidth) / w);
+    w = maxWidth;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas no soportado");
+
+  // Preserve PNG transparency, otherwise output JPEG for max compression
+  const isPng = ext === "png" || file.type === "image/png";
+  const outMime = isPng ? "image/webp" : "image/jpeg";
+  const outExt = isPng ? "webp" : "jpg";
+
+  if (!isPng) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+  }
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const blob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Compresión fallida"))),
+      outMime,
+      Math.min(1, Math.max(0.1, quality)),
+    );
+  });
+
+  const baseName = file.name.replace(/\.[^.]+$/, "");
+  return {
+    blob,
+    filename: `${baseName}_comprimido.${outExt}`,
+    originalSize: file.size,
+    newSize: blob.size,
+  };
+}
