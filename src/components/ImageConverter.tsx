@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Download, FolderUp, ImageUp, Loader2, Sparkles } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type ConvertedItem = {
   id: string;
@@ -148,8 +149,16 @@ export function ImageConverter() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--gradient-soft)" }}>
-      <div className="mx-auto max-w-5xl px-6 py-16">
+    <div className="relative min-h-screen" style={{ background: "var(--gradient-soft)" }}>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "var(--gradient-accent)" }}
+        aria-hidden
+      />
+      <div className="relative mx-auto max-w-5xl px-6 py-16">
+        <div className="mb-6 flex justify-end">
+          <ThemeToggle />
+        </div>
         <header className="mb-12 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
