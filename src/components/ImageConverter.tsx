@@ -267,7 +267,7 @@ export function ImageConverter() {
       <div className="relative mx-auto max-w-5xl px-6 py-16">
         <div className="mb-6 flex justify-end gap-2">
           <Button asChild variant="outline" className="rounded-full">
-            <a href="url_orderImg" target="_blank" rel="noopener noreferrer">
+            <a href="https://orderimgdirkz.lovable.app/" target="_blank" rel="noopener noreferrer">
               Ordenar imágenes
             </a>
           </Button>
