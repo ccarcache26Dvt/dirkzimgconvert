@@ -265,7 +265,12 @@ export function ImageConverter() {
         aria-hidden
       />
       <div className="relative mx-auto max-w-5xl px-6 py-16">
-        <div className="mb-6 flex justify-end">
+        <div className="mb-6 flex justify-end gap-2">
+          <Button asChild variant="outline" className="rounded-full">
+            <a href="url_orderImg" target="_blank" rel="noopener noreferrer">
+              Ordenar imágenes
+            </a>
+          </Button>
           <ThemeToggle />
         </div>
         <header className="mb-12 text-center">
