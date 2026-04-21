@@ -212,6 +212,60 @@ export function ImageConverter() {
     toast.success(`${results.length} imagen(es) comprimida(s)`);
   };
 
+  const processCompressFolder = async (files: FileWithPath[], folderName: string) => {
+    if (checkVideos(files)) return;
+    const images = files.filter(isImageFile);
+    if (images.length === 0) {
+      toast.error("La carpeta no contiene imágenes");
+      return;
+    }
+    setBusy(true);
+    setProgress({ done: 0, total: images.length });
+    const zip = new JSZip();
+    const root = zip.folder(`${folderName}_comprimido`)!;
+    let totalOrig = 0;
+    let totalNew = 0;
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const { blob, filename, originalSize, newSize } = await compressImage(
+          images[i],
+          quality / 100,
+        );
+        totalOrig += originalSize;
+        totalNew += newSize;
+        const rel =
+          (images[i] as FileWithPath).relativePath ??
+          (images[i] as File & { webkitRelativePath?: string }).webkitRelativePath ??
+          images[i].name;
+        const parts = rel.split("/");
+        if (parts.length > 1 && parts[0] === folderName) parts.shift();
+        parts[parts.length - 1] = filename;
+        root.file(parts.join("/"), blob);
+      } catch (err) {
+        console.error(err);
+        toast.error(`Error con ${images[i].name}`);
+      }
+      setProgress({ done: i + 1, total: images.length });
+    }
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const saved = totalOrig > 0 ? Math.max(0, Math.round((1 - totalNew / totalOrig) * 100)) : 0;
+    setCompressed((prev) => [
+      {
+        id: `${Date.now()}-zip`,
+        name: `${folderName}_comprimido.zip`,
+        url,
+        blob: zipBlob,
+        originalSize: totalOrig,
+        newSize: totalNew,
+      },
+      ...prev,
+    ]);
+    setBusy(false);
+    setProgress(null);
+    toast.success(`Carpeta comprimida: ${images.length} imagen(es) · −${saved}%`);
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -229,6 +283,20 @@ export function ImageConverter() {
     await processFolderConvert(files, folderName);
   };
 
+  const handleCompressFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []) as FileWithPath[];
+    e.target.value = "";
+    if (files.length === 0) return;
+    files.forEach((f) => {
+      const wf = f as File & { webkitRelativePath?: string };
+      f.relativePath = wf.webkitRelativePath ?? f.name;
+    });
+    const first = files[0] as File & { webkitRelativePath?: string };
+    const rel = first.webkitRelativePath ?? "";
+    const folderName = rel.split("/")[0] || "carpeta";
+    await processCompressFolder(files, folderName);
+  };
+
   const onDrop = async (
     e: React.DragEvent<HTMLButtonElement>,
     target: Exclude<DropTarget, null>,
@@ -236,19 +304,26 @@ export function ImageConverter() {
     e.preventDefault();
     setDragOver(null);
     if (busy) return;
-    const files = Array.from(e.dataTransfer.files ?? []);
+
+    const walked = await filesFromDataTransfer(e.dataTransfer);
+    const files: FileWithPath[] = walked.length
+      ? walked
+      : (Array.from(e.dataTransfer.files ?? []) as FileWithPath[]);
     if (files.length === 0) return;
 
+    const hasFolder = files.some((f) => (f.relativePath ?? "").includes("/"));
+    const folderName = (files[0].relativePath ?? "").split("/")[0] || "carpeta";
+
     if (target === "folder") {
-      // Try to derive a folder name from the first file's path if available
-      const first = files[0] as File & { webkitRelativePath?: string };
-      const rel = first.webkitRelativePath ?? "";
-      const folderName = rel.split("/")[0] || "carpeta";
       await processFolderConvert(files, folderName);
     } else if (target === "image") {
       await processImagesForConvert(files);
     } else {
-      await processCompress(files);
+      if (hasFolder) {
+        await processCompressFolder(files, folderName);
+      } else {
+        await processCompress(files);
+      }
     }
   };
 
