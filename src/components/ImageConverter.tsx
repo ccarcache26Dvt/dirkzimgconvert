@@ -41,6 +41,53 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+type FileWithPath = File & { relativePath?: string };
+
+async function readEntriesAll(reader: any): Promise<any[]> {
+  const all: any[] = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const batch: any[] = await new Promise((res, rej) => reader.readEntries(res, rej));
+    if (!batch.length) break;
+    all.push(...batch);
+  }
+  return all;
+}
+
+async function walkEntry(entry: any, path: string, out: FileWithPath[]): Promise<void> {
+  if (!entry) return;
+  if (entry.isFile) {
+    const file: File = await new Promise((res, rej) => entry.file(res, rej));
+    const fp = file as FileWithPath;
+    fp.relativePath = path + entry.name;
+    out.push(fp);
+  } else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    const entries = await readEntriesAll(reader);
+    for (const child of entries) {
+      await walkEntry(child, path + entry.name + "/", out);
+    }
+  }
+}
+
+async function filesFromDataTransfer(dt: DataTransfer): Promise<FileWithPath[]> {
+  const items = dt.items;
+  const out: FileWithPath[] = [];
+  if (items && items.length && typeof (items[0] as any).webkitGetAsEntry === "function") {
+    const entries: any[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const e = (items[i] as any).webkitGetAsEntry?.();
+      if (e) entries.push(e);
+    }
+    if (entries.length) {
+      for (const entry of entries) await walkEntry(entry, "", out);
+      return out;
+    }
+  }
+  // Fallback: just files
+  return Array.from(dt.files ?? []) as FileWithPath[];
+}
+
 export function ImageConverter() {
   const [format, setFormat] = useState<TargetFormat>("jpg");
   const [quality, setQuality] = useState<number>(70);
