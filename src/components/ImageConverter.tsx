@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles } from "lucide-react";
+import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles, Trash2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoRoyal from "@/assets/logo-royal.png";
 
