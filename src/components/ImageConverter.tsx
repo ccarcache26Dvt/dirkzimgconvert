@@ -374,6 +374,29 @@ export function ImageConverter() {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
+  const clearAll = () => {
+    if (busy) return;
+    const totalItems = ourImg.length + compressed.length + (folderResult ? 1 : 0);
+    ourImg.forEach((it) => URL.revokeObjectURL(it.url));
+    compressed.forEach((it) => URL.revokeObjectURL(it.url));
+    if (folderResult) URL.revokeObjectURL(folderResult.zipUrl);
+    setOurImg([]);
+    setCompressed([]);
+    setFolderResult(null);
+    setProgress(null);
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (err) {
+      console.error(err);
+    }
+    if (totalItems > 0) {
+      toast.success(`Limpieza completa · ${totalItems} elemento(s) eliminados`);
+    } else {
+      toast.success("Datos locales limpiados");
+    }
+  };
+
   const dropClasses = (target: Exclude<DropTarget, null>) =>
     `group relative overflow-hidden rounded-2xl border-2 border-dashed p-8 text-left transition-all disabled:opacity-50 ${
       dragOver === target
