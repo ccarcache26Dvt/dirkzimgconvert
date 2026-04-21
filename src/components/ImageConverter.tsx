@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles } from "lucide-react";
+import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles, Trash2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoRoyal from "@/assets/logo-royal.png";
 
@@ -41,6 +41,53 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+type FileWithPath = File & { relativePath?: string };
+
+async function readEntriesAll(reader: any): Promise<any[]> {
+  const all: any[] = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const batch: any[] = await new Promise((res, rej) => reader.readEntries(res, rej));
+    if (!batch.length) break;
+    all.push(...batch);
+  }
+  return all;
+}
+
+async function walkEntry(entry: any, path: string, out: FileWithPath[]): Promise<void> {
+  if (!entry) return;
+  if (entry.isFile) {
+    const file: File = await new Promise((res, rej) => entry.file(res, rej));
+    const fp = file as FileWithPath;
+    fp.relativePath = path + entry.name;
+    out.push(fp);
+  } else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    const entries = await readEntriesAll(reader);
+    for (const child of entries) {
+      await walkEntry(child, path + entry.name + "/", out);
+    }
+  }
+}
+
+async function filesFromDataTransfer(dt: DataTransfer): Promise<FileWithPath[]> {
+  const items = dt.items;
+  const out: FileWithPath[] = [];
+  if (items && items.length && typeof (items[0] as any).webkitGetAsEntry === "function") {
+    const entries: any[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const e = (items[i] as any).webkitGetAsEntry?.();
+      if (e) entries.push(e);
+    }
+    if (entries.length) {
+      for (const entry of entries) await walkEntry(entry, "", out);
+      return out;
+    }
+  }
+  // Fallback: just files
+  return Array.from(dt.files ?? []) as FileWithPath[];
+}
+
 export function ImageConverter() {
   const [format, setFormat] = useState<TargetFormat>("jpg");
   const [quality, setQuality] = useState<number>(70);
@@ -57,6 +104,8 @@ export function ImageConverter() {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const compressFolderInputRef = useRef<HTMLInputElement>(null);
+  const compressFileInputRef = useRef<HTMLInputElement>(null);
 
   const checkVideos = (files: File[]): boolean => {
     const videos = files.filter(isVideoFile);
@@ -165,6 +214,60 @@ export function ImageConverter() {
     toast.success(`${results.length} imagen(es) comprimida(s)`);
   };
 
+  const processCompressFolder = async (files: FileWithPath[], folderName: string) => {
+    if (checkVideos(files)) return;
+    const images = files.filter(isImageFile);
+    if (images.length === 0) {
+      toast.error("La carpeta no contiene imágenes");
+      return;
+    }
+    setBusy(true);
+    setProgress({ done: 0, total: images.length });
+    const zip = new JSZip();
+    const root = zip.folder(`${folderName}_comprimido`)!;
+    let totalOrig = 0;
+    let totalNew = 0;
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const { blob, filename, originalSize, newSize } = await compressImage(
+          images[i],
+          quality / 100,
+        );
+        totalOrig += originalSize;
+        totalNew += newSize;
+        const rel =
+          (images[i] as FileWithPath).relativePath ??
+          (images[i] as File & { webkitRelativePath?: string }).webkitRelativePath ??
+          images[i].name;
+        const parts = rel.split("/");
+        if (parts.length > 1 && parts[0] === folderName) parts.shift();
+        parts[parts.length - 1] = filename;
+        root.file(parts.join("/"), blob);
+      } catch (err) {
+        console.error(err);
+        toast.error(`Error con ${images[i].name}`);
+      }
+      setProgress({ done: i + 1, total: images.length });
+    }
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const saved = totalOrig > 0 ? Math.max(0, Math.round((1 - totalNew / totalOrig) * 100)) : 0;
+    setCompressed((prev) => [
+      {
+        id: `${Date.now()}-zip`,
+        name: `${folderName}_comprimido.zip`,
+        url,
+        blob: zipBlob,
+        originalSize: totalOrig,
+        newSize: totalNew,
+      },
+      ...prev,
+    ]);
+    setBusy(false);
+    setProgress(null);
+    toast.success(`Carpeta comprimida: ${images.length} imagen(es) · −${saved}%`);
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -182,6 +285,20 @@ export function ImageConverter() {
     await processFolderConvert(files, folderName);
   };
 
+  const handleCompressFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []) as FileWithPath[];
+    e.target.value = "";
+    if (files.length === 0) return;
+    files.forEach((f) => {
+      const wf = f as File & { webkitRelativePath?: string };
+      f.relativePath = wf.webkitRelativePath ?? f.name;
+    });
+    const first = files[0] as File & { webkitRelativePath?: string };
+    const rel = first.webkitRelativePath ?? "";
+    const folderName = rel.split("/")[0] || "carpeta";
+    await processCompressFolder(files, folderName);
+  };
+
   const onDrop = async (
     e: React.DragEvent<HTMLButtonElement>,
     target: Exclude<DropTarget, null>,
@@ -189,19 +306,26 @@ export function ImageConverter() {
     e.preventDefault();
     setDragOver(null);
     if (busy) return;
-    const files = Array.from(e.dataTransfer.files ?? []);
+
+    const walked = await filesFromDataTransfer(e.dataTransfer);
+    const files: FileWithPath[] = walked.length
+      ? walked
+      : (Array.from(e.dataTransfer.files ?? []) as FileWithPath[]);
     if (files.length === 0) return;
 
+    const hasFolder = files.some((f) => (f.relativePath ?? "").includes("/"));
+    const folderName = (files[0].relativePath ?? "").split("/")[0] || "carpeta";
+
     if (target === "folder") {
-      // Try to derive a folder name from the first file's path if available
-      const first = files[0] as File & { webkitRelativePath?: string };
-      const rel = first.webkitRelativePath ?? "";
-      const folderName = rel.split("/")[0] || "carpeta";
       await processFolderConvert(files, folderName);
     } else if (target === "image") {
       await processImagesForConvert(files);
     } else {
-      await processCompress(files);
+      if (hasFolder) {
+        await processCompressFolder(files, folderName);
+      } else {
+        await processCompress(files);
+      }
     }
   };
 
@@ -250,6 +374,29 @@ export function ImageConverter() {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
+  const clearAll = () => {
+    if (busy) return;
+    const totalItems = ourImg.length + compressed.length + (folderResult ? 1 : 0);
+    ourImg.forEach((it) => URL.revokeObjectURL(it.url));
+    compressed.forEach((it) => URL.revokeObjectURL(it.url));
+    if (folderResult) URL.revokeObjectURL(folderResult.zipUrl);
+    setOurImg([]);
+    setCompressed([]);
+    setFolderResult(null);
+    setProgress(null);
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (err) {
+      console.error(err);
+    }
+    if (totalItems > 0) {
+      toast.success(`Limpieza completa · ${totalItems} elemento(s) eliminados`);
+    } else {
+      toast.success("Datos locales limpiados");
+    }
+  };
+
   const dropClasses = (target: Exclude<DropTarget, null>) =>
     `group relative overflow-hidden rounded-2xl border-2 border-dashed p-8 text-left transition-all disabled:opacity-50 ${
       dragOver === target
@@ -270,6 +417,14 @@ export function ImageConverter() {
             <a href="https://orderimgdirkz.lovable.app/" target="_blank" rel="noopener noreferrer">
               Ordenar imágenes
             </a>
+          </Button>
+          <Button
+            onClick={clearAll}
+            variant="outline"
+            disabled={busy}
+            className="rounded-full gap-2"
+          >
+            <Trash2 className="h-4 w-4" /> Limpiar todo
           </Button>
           <ThemeToggle />
         </div>
@@ -420,30 +575,61 @@ export function ImageConverter() {
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.multiple = true;
-              input.accept = "image/*,.heic,.heif,.tif,.tiff";
-              input.onchange = async () => {
-                const files = Array.from(input.files ?? []);
-                if (files.length > 0) await processCompress(files);
-              };
-              input.click();
+          <div className="grid gap-4 md:grid-cols-2">
+            <button
+              onClick={() => compressFileInputRef.current?.click()}
+              onDrop={(e) => onDrop(e, "compress")}
+              onDragOver={(e) => onDragOver(e, "compress")}
+              onDragLeave={onDragLeave}
+              disabled={busy}
+              className={dropClasses("compress")}
+            >
+              <FileArchive className="mb-3 h-8 w-8 text-primary transition-transform group-hover:scale-110" />
+              <h3 className="text-lg font-semibold text-foreground">Comprimir imágenes</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Arrastra imágenes aquí o haz clic para seleccionarlas. Calidad ajustable.
+              </p>
+            </button>
+
+            <button
+              onClick={() => compressFolderInputRef.current?.click()}
+              onDrop={(e) => onDrop(e, "compress")}
+              onDragOver={(e) => onDragOver(e, "compress")}
+              onDragLeave={onDragLeave}
+              disabled={busy}
+              className={dropClasses("compress")}
+            >
+              <FolderUp className="mb-3 h-8 w-8 text-primary transition-transform group-hover:scale-110" />
+              <h3 className="text-lg font-semibold text-foreground">Comprimir carpeta</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Arrastra una carpeta (con subcarpetas) o haz clic. Se descarga como{" "}
+                <span className="font-mono text-foreground">nombre_comprimido.zip</span>
+              </p>
+            </button>
+          </div>
+
+          <input
+            ref={compressFileInputRef}
+            type="file"
+            accept="image/*,.heic,.heif,.tif,.tiff"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (files.length > 0) await processCompress(files);
             }}
-            onDrop={(e) => onDrop(e, "compress")}
-            onDragOver={(e) => onDragOver(e, "compress")}
-            onDragLeave={onDragLeave}
-            disabled={busy}
-            className={dropClasses("compress")}
-          >
-            <FileArchive className="mb-3 h-8 w-8 text-primary transition-transform group-hover:scale-110" />
-            <h3 className="text-lg font-semibold text-foreground">Comprimir imágenes</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Arrastra imágenes aquí o haz clic para seleccionarlas. Calidad ajustable.
-            </p>
-          </button>
+          />
+          <input
+            ref={compressFolderInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            // @ts-expect-error non-standard but supported
+            webkitdirectory=""
+            directory=""
+            onChange={handleCompressFolderUpload}
+          />
         </section>
 
         {folderResult && (
