@@ -104,6 +104,8 @@ export function ImageConverter() {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const compressFolderInputRef = useRef<HTMLInputElement>(null);
+  const compressFileInputRef = useRef<HTMLInputElement>(null);
 
   const checkVideos = (files: File[]): boolean => {
     const videos = files.filter(isVideoFile);
