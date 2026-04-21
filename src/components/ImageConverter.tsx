@@ -418,6 +418,14 @@ export function ImageConverter() {
               Ordenar imágenes
             </a>
           </Button>
+          <Button
+            onClick={clearAll}
+            variant="outline"
+            disabled={busy}
+            className="rounded-full gap-2"
+          >
+            <Trash2 className="h-4 w-4" /> Limpiar todo
+          </Button>
           <ThemeToggle />
         </div>
         <header className="mb-12 text-center">
