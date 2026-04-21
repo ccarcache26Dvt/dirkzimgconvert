@@ -575,30 +575,61 @@ export function ImageConverter() {
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.multiple = true;
-              input.accept = "image/*,.heic,.heif,.tif,.tiff";
-              input.onchange = async () => {
-                const files = Array.from(input.files ?? []);
-                if (files.length > 0) await processCompress(files);
-              };
-              input.click();
+          <div className="grid gap-4 md:grid-cols-2">
+            <button
+              onClick={() => compressFileInputRef.current?.click()}
+              onDrop={(e) => onDrop(e, "compress")}
+              onDragOver={(e) => onDragOver(e, "compress")}
+              onDragLeave={onDragLeave}
+              disabled={busy}
+              className={dropClasses("compress")}
+            >
+              <FileArchive className="mb-3 h-8 w-8 text-primary transition-transform group-hover:scale-110" />
+              <h3 className="text-lg font-semibold text-foreground">Comprimir imágenes</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Arrastra imágenes aquí o haz clic para seleccionarlas. Calidad ajustable.
+              </p>
+            </button>
+
+            <button
+              onClick={() => compressFolderInputRef.current?.click()}
+              onDrop={(e) => onDrop(e, "compress")}
+              onDragOver={(e) => onDragOver(e, "compress")}
+              onDragLeave={onDragLeave}
+              disabled={busy}
+              className={dropClasses("compress")}
+            >
+              <FolderUp className="mb-3 h-8 w-8 text-primary transition-transform group-hover:scale-110" />
+              <h3 className="text-lg font-semibold text-foreground">Comprimir carpeta</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Arrastra una carpeta (con subcarpetas) o haz clic. Se descarga como{" "}
+                <span className="font-mono text-foreground">nombre_comprimido.zip</span>
+              </p>
+            </button>
+          </div>
+
+          <input
+            ref={compressFileInputRef}
+            type="file"
+            accept="image/*,.heic,.heif,.tif,.tiff"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (files.length > 0) await processCompress(files);
             }}
-            onDrop={(e) => onDrop(e, "compress")}
-            onDragOver={(e) => onDragOver(e, "compress")}
-            onDragLeave={onDragLeave}
-            disabled={busy}
-            className={dropClasses("compress")}
-          >
-            <FileArchive className="mb-3 h-8 w-8 text-primary transition-transform group-hover:scale-110" />
-            <h3 className="text-lg font-semibold text-foreground">Comprimir imágenes</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Arrastra imágenes aquí o haz clic para seleccionarlas. Calidad ajustable.
-            </p>
-          </button>
+          />
+          <input
+            ref={compressFolderInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            // @ts-expect-error non-standard but supported
+            webkitdirectory=""
+            directory=""
+            onChange={handleCompressFolderUpload}
+          />
         </section>
 
         {folderResult && (
