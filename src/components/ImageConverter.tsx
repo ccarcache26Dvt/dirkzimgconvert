@@ -304,13 +304,29 @@ export function ImageConverter() {
     target: Exclude<DropTarget, null>,
   ) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(null);
     if (busy) return;
 
-    const walked = await filesFromDataTransfer(e.dataTransfer);
-    const files: FileWithPath[] = walked.length
-      ? walked
-      : (Array.from(e.dataTransfer.files ?? []) as FileWithPath[]);
+    // Capture references BEFORE any await — React pools synthetic events
+    const dt = e.dataTransfer;
+    const itemsList: any[] = [];
+    if (dt.items && dt.items.length) {
+      for (let i = 0; i < dt.items.length; i++) {
+        const it = dt.items[i] as any;
+        const entry = typeof it.webkitGetAsEntry === "function" ? it.webkitGetAsEntry() : null;
+        if (entry) itemsList.push(entry);
+      }
+    }
+    const fallbackFiles = Array.from(dt.files ?? []) as FileWithPath[];
+
+    let files: FileWithPath[] = [];
+    if (itemsList.length) {
+      const out: FileWithPath[] = [];
+      for (const entry of itemsList) await walkEntry(entry, "", out);
+      files = out;
+    }
+    if (files.length === 0) files = fallbackFiles;
     if (files.length === 0) return;
 
     const hasFolder = files.some((f) => (f.relativePath ?? "").includes("/"));
@@ -375,7 +391,6 @@ export function ImageConverter() {
   };
 
   const clearAll = () => {
-    if (busy) return;
     const totalItems = ourImg.length + compressed.length + (folderResult ? 1 : 0);
     ourImg.forEach((it) => URL.revokeObjectURL(it.url));
     compressed.forEach((it) => URL.revokeObjectURL(it.url));
@@ -384,6 +399,8 @@ export function ImageConverter() {
     setCompressed([]);
     setFolderResult(null);
     setProgress(null);
+    setBusy(false);
+    setDragOver(null);
     try {
       localStorage.clear();
       sessionStorage.clear();
