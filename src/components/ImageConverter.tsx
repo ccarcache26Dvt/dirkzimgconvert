@@ -375,7 +375,6 @@ export function ImageConverter() {
   };
 
   const clearAll = () => {
-    if (busy) return;
     const totalItems = ourImg.length + compressed.length + (folderResult ? 1 : 0);
     ourImg.forEach((it) => URL.revokeObjectURL(it.url));
     compressed.forEach((it) => URL.revokeObjectURL(it.url));
@@ -384,6 +383,8 @@ export function ImageConverter() {
     setCompressed([]);
     setFolderResult(null);
     setProgress(null);
+    setBusy(false);
+    setDragOver(null);
     try {
       localStorage.clear();
       sessionStorage.clear();
