@@ -422,7 +422,7 @@ export function ImageConverter() {
     }`;
 
   return (
-    <div className="relative min-h-screen" style={{ background: "var(--gradient-soft)" }}>
+    <div className="relative min-h-screen capitalize" style={{ background: "var(--gradient-soft)" }}>
       <div
         className="pointer-events-none absolute inset-0"
         style={{ background: "var(--gradient-accent)" }}
@@ -453,10 +453,10 @@ export function ImageConverter() {
           />
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
-            Convertidor en el navegador · 100% privado
+            Convertidor royal dirkz group S.A  · 100% privado
           </div>
           <h1
-            className="bg-clip-text text-5xl font-bold tracking-tight text-transparent md:text-6xl"
+            className="bg-clip-text text-2xl font-bold tracking-tight text-transparent lg:text-6xl lg:h-20"
             style={{ backgroundImage: "var(--gradient-primary)" }}
           >
             Convertidor de Imágenes
