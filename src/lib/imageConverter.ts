@@ -48,6 +48,44 @@ async function decodeHeic(file: File): Promise<Blob> {
   return Array.isArray(result) ? result[0] : result;
 }
 
+async function decodeTiff(file: File): Promise<Blob> {
+  const UTIF = (await import("utif")).default;
+  const buf = await file.arrayBuffer();
+  const ifds = UTIF.decode(buf);
+  if (!ifds.length) throw new Error("TIFF inválido");
+  UTIF.decodeImage(buf, ifds[0]);
+  const rgba = UTIF.toRGBA8(ifds[0]);
+  const w = ifds[0].width;
+  const h = ifds[0].height;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas no soportado");
+  const imgData = ctx.createImageData(w, h);
+  imgData.data.set(rgba);
+  ctx.putImageData(imgData, 0, 0);
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("TIFF decode failed"))), "image/png");
+  });
+}
+
+function isHeic(file: File): boolean {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return ext === "heic" || ext === "heif" || file.type === "image/heic" || file.type === "image/heif";
+}
+
+function isTiff(file: File): boolean {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return ext === "tif" || ext === "tiff" || file.type === "image/tiff";
+}
+
+async function decodeToBlob(file: File): Promise<Blob> {
+  if (isHeic(file)) return decodeHeic(file);
+  if (isTiff(file)) return decodeTiff(file);
+  return file;
+}
+
 async function blobToImage(blob: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(blob);
   try {
