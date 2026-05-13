@@ -107,12 +107,7 @@ export async function convertImage(
   file: File,
   format: TargetFormat,
 ): Promise<{ blob: Blob; filename: string }> {
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  let sourceBlob: Blob = file;
-
-  if (ext === "heic" || ext === "heif" || file.type === "image/heic" || file.type === "image/heif") {
-    sourceBlob = await decodeHeic(file);
-  }
+  const sourceBlob: Blob = await decodeToBlob(file);
 
   const img = await blobToImage(sourceBlob);
   const canvas = document.createElement("canvas");
