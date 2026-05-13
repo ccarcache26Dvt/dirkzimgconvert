@@ -89,22 +89,27 @@ export async function convertImage(
   }
   ctx.drawImage(img, 0, 0);
 
-  const targetMime = mimeFor(format);
-  // Browsers may not support tiff encoding via canvas; fallback to png
-  const useMime =
-    format === "tiff" ? "image/png" : targetMime;
-
-  const blob: Blob = await new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("Conversión fallida"))),
-      useMime,
-      0.92,
-    );
-  });
-
   const baseName = file.name.replace(/\.[^.]+$/, "");
-  const finalExt = format === "tiff" ? "png" : extFor(format);
-  return { blob, filename: `${baseName}.${finalExt}` };
+
+  let blob: Blob;
+  if (format === "tiff") {
+    // Real TIFF encoding via UTIF (canvas no soporta TIFF nativamente)
+    const UTIF = (await import("utif")).default;
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const tiffBuffer = UTIF.encodeImage(imgData.data, canvas.width, canvas.height);
+    blob = new Blob([tiffBuffer], { type: "image/tiff" });
+  } else {
+    const targetMime = mimeFor(format);
+    blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Conversión fallida"))),
+        targetMime,
+        0.92,
+      );
+    });
+  }
+
+  return { blob, filename: `${baseName}.${extFor(format)}` };
 }
 
 export async function compressImage(
