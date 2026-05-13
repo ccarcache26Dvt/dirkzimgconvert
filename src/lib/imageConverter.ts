@@ -96,7 +96,11 @@ export async function convertImage(
     // Real TIFF encoding via UTIF (canvas no soporta TIFF nativamente)
     const UTIF = (await import("utif")).default;
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const tiffBuffer = UTIF.encodeImage(imgData.data, canvas.width, canvas.height);
+    const tiffBuffer = UTIF.encodeImage(
+      new Uint8Array(imgData.data.buffer, imgData.data.byteOffset, imgData.data.byteLength),
+      canvas.width,
+      canvas.height,
+    );
     blob = new Blob([tiffBuffer], { type: "image/tiff" });
   } else {
     const targetMime = mimeFor(format);
