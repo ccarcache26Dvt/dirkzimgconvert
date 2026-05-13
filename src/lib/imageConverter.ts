@@ -155,11 +155,7 @@ export async function compressImage(
   maxWidth?: number,
 ): Promise<{ blob: Blob; filename: string; originalSize: number; newSize: number }> {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  let sourceBlob: Blob = file;
-
-  if (ext === "heic" || ext === "heif" || file.type === "image/heic" || file.type === "image/heif") {
-    sourceBlob = await decodeHeic(file);
-  }
+  const sourceBlob: Blob = await decodeToBlob(file);
 
   const img = await blobToImage(sourceBlob);
   let w = img.naturalWidth;
