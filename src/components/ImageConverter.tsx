@@ -448,18 +448,18 @@ export function ImageConverter() {
         <header className="mb-12 text-center">
           <img
             src={logoRoyal}
-            alt="Royal Dirkz Group"
-            className="mx-auto mb-6 h-20 w-auto md:h-24"
+            alt="Image Converter Right"
+            className="mx-auto mb-6 h-24 w-auto md:h-32"
           />
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
-            Convertidor royal dirkz group S.A  · 100% privado
+            Image Converter Right · 100% privado
           </div>
           <h1
             className="bg-clip-text text-2xl font-bold tracking-tight text-transparent lg:text-6xl lg:h-20"
             style={{ backgroundImage: "var(--gradient-primary)" }}
           >
-            Convertidor de Imágenes
+            Image Converter Right
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
             Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce
