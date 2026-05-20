@@ -449,7 +449,7 @@ export function ImageConverter() {
           <img
             src={logoRoyal}
             alt="Image Converter Right"
-            className="mx-auto mb-6 h-24 w-auto md:h-32"
+            className="mx-auto mb-6 rounded-full w-56 h-56 object-contain"
           />
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
