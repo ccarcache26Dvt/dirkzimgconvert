@@ -17,7 +17,16 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles, Trash2 } from "lucide-react";
+import {
+  Download,
+  FileArchive,
+  FolderUp,
+  ImageUp,
+  Loader2,
+  Minimize2,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoRoyal from "@/assets/logo-royal.png";
 import { UrlImageExtractor } from "@/components/UrlImageExtractor";
@@ -112,7 +121,10 @@ export function ImageConverter() {
     const videos = files.filter(isVideoFile);
     if (videos.length > 0) {
       toast.error("No se aceptan videos", {
-        description: `Detectado: ${videos.slice(0, 3).map((v) => v.name).join(", ")}${videos.length > 3 ? "…" : ""}`,
+        description: `Detectado: ${videos
+          .slice(0, 3)
+          .map((v) => v.name)
+          .join(", ")}${videos.length > 3 ? "…" : ""}`,
       });
       return true;
     }
@@ -346,10 +358,7 @@ export function ImageConverter() {
     }
   };
 
-  const onDragOver = (
-    e: React.DragEvent<HTMLButtonElement>,
-    target: Exclude<DropTarget, null>,
-  ) => {
+  const onDragOver = (e: React.DragEvent<HTMLButtonElement>, target: Exclude<DropTarget, null>) => {
     e.preventDefault();
     if (!busy) setDragOver(target);
   };
@@ -423,7 +432,10 @@ export function ImageConverter() {
     }`;
 
   return (
-    <div className="relative min-h-screen capitalize" style={{ background: "var(--gradient-soft)" }}>
+    <div
+      className="relative min-h-screen capitalize"
+      style={{ background: "var(--gradient-soft)" }}
+    >
       <div
         className="pointer-events-none absolute inset-0"
         style={{ background: "var(--gradient-accent)" }}
@@ -466,7 +478,7 @@ export function ImageConverter() {
             Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce
             el peso de tus imágenes.
           </p>
-          <div className="mt-6 flex justify-center">
+          <div className="mt-6 flex justify-center capitalize gap-4">
             <Button
               type="button"
               onClick={() => {
@@ -486,15 +498,14 @@ export function ImageConverter() {
               }}
               className="rounded-full gap-2"
             >
-              <Download className="h-4 w-4" /> Descargar extensión Chrome (Gallery Extractor)
+              <Download className="h-4 w-4" /> Descargar extensión Chrome (Dallery Extractor Right)
             </Button>
           </div>
         </header>
 
-        <UrlImageExtractor />
-
-
-
+        <div className="mb-8 ">
+          <UrlImageExtractor />
+        </div>
 
         <section
           className="rounded-3xl border border-border bg-card p-8"
@@ -717,10 +728,7 @@ export function ImageConverter() {
             </div>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
               {compressed.map((item) => {
-                const saved = Math.max(
-                  0,
-                  Math.round((1 - item.newSize / item.originalSize) * 100),
-                );
+                const saved = Math.max(0, Math.round((1 - item.newSize / item.originalSize) * 100));
                 return (
                   <div
                     key={item.id}
