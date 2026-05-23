@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles, Trash2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoRoyal from "@/assets/logo-royal.png";
+import { UrlImageExtractor } from "@/components/UrlImageExtractor";
 
 type ConvertedItem = {
   id: string;
@@ -489,6 +490,10 @@ export function ImageConverter() {
             </Button>
           </div>
         </header>
+
+        <UrlImageExtractor />
+
+
 
 
         <section
