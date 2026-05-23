@@ -465,7 +465,31 @@ export function ImageConverter() {
             Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce
             el peso de tus imágenes.
           </p>
+          <div className="mt-6 flex justify-center">
+            <Button
+              type="button"
+              onClick={() => {
+                fetch("/gallery-extractor.zip")
+                  .then((r) => {
+                    if (!r.ok) throw new Error("No se pudo descargar el ZIP");
+                    return r.blob();
+                  })
+                  .then((blob) => {
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "gallery-extractor.zip";
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                  })
+                  .catch((err) => alert(err.message));
+              }}
+              className="rounded-full gap-2"
+            >
+              <Download className="h-4 w-4" /> Descargar extensión Chrome (Gallery Extractor)
+            </Button>
+          </div>
         </header>
+
 
         <section
           className="rounded-3xl border border-border bg-card p-8"
