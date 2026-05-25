@@ -508,6 +508,10 @@ export function ImageConverter() {
           <UrlImageExtractor />
         </div>
 
+        <div className="mb-8">
+          <MejorarCalidadImg />
+        </div>
+
         <section
           className="rounded-3xl border border-border bg-card p-8"
           style={{ boxShadow: "var(--shadow-card)" }}
