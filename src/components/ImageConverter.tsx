@@ -30,6 +30,7 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoRoyal from "@/assets/logo-royal.png";
 import { UrlImageExtractor } from "@/components/UrlImageExtractor";
+import { MejorarCalidadImg } from "@/components/MejorarCalidadImg";
 
 type ConvertedItem = {
   id: string;
@@ -505,6 +506,10 @@ export function ImageConverter() {
 
         <div className="mb-8 ">
           <UrlImageExtractor />
+        </div>
+
+        <div className="mb-8">
+          <MejorarCalidadImg />
         </div>
 
         <section
