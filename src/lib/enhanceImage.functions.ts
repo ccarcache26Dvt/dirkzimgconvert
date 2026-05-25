@@ -8,11 +8,11 @@ const inputSchema = z.object({
 });
 
 const DEFAULT_PROMPT =
-  "Enhance this image to maximum quality: upscale resolution, remove pixelation, noise and JPEG artifacts, sharpen edges and vector strokes, restore fine details, improve clarity, color and lighting. Preserve the original subject, composition and proportions exactly. Output a clean, high-resolution version of the same image.";
+  "Upscale and enhance this image to maximum quality WITHOUT cropping, zooming, reframing or changing the aspect ratio. Keep the EXACT same framing, composition, subject position and full content visible from edge to edge. Do not add borders. Remove pixelation, JPEG/compression artifacts and noise. Sharpen edges and vector strokes. Restore fine details, textures, hair, skin, and small text. Improve clarity, contrast, color balance and lighting naturally. Then, AFTER the image, write a short bullet list in Spanish (3-6 bullets) titled 'Mejoras aplicadas:' describing exactly what you improved (e.g. nitidez, ruido, color, detalles, iluminación, artefactos).";
 
 type GatewayPart =
   | { type: "text"; text?: string }
-  | { type?: string; image_url?: { url?: string } | string; url?: string };
+  | { type?: string; image_url?: { url?: string } | string; url?: string; text?: string };
 
 export const enhanceImage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
@@ -61,8 +61,8 @@ export const enhanceImage = createServerFn({ method: "POST" })
 
     const msg = json.choices?.[0]?.message;
     let imageUrl: string | undefined;
+    let notes = "";
 
-    // Common shape: message.images[].image_url.url
     const imgs = msg?.images;
     if (Array.isArray(imgs)) {
       for (const it of imgs) {
@@ -74,18 +74,21 @@ export const enhanceImage = createServerFn({ method: "POST" })
       }
     }
 
-    // Fallback: parts in content
-    if (!imageUrl && Array.isArray(msg?.content)) {
+    if (typeof msg?.content === "string") {
+      notes = msg.content;
+    } else if (Array.isArray(msg?.content)) {
       for (const p of msg!.content as GatewayPart[]) {
-        const v =
-          typeof (p as { image_url?: unknown }).image_url === "string"
-            ? ((p as { image_url: string }).image_url)
-            : (p as { image_url?: { url?: string } }).image_url?.url ??
-              (p as { url?: string }).url;
-        if (typeof v === "string" && v.startsWith("data:image")) {
-          imageUrl = v;
-          break;
+        if (!imageUrl) {
+          const v =
+            typeof (p as { image_url?: unknown }).image_url === "string"
+              ? ((p as { image_url: string }).image_url)
+              : (p as { image_url?: { url?: string } }).image_url?.url ??
+                (p as { url?: string }).url;
+          if (typeof v === "string" && v.startsWith("data:image")) {
+            imageUrl = v;
+          }
         }
+        if (typeof p.text === "string") notes += (notes ? "\n" : "") + p.text;
       }
     }
 
@@ -93,5 +96,5 @@ export const enhanceImage = createServerFn({ method: "POST" })
       throw new Error("La IA no devolvió una imagen. Intenta de nuevo.");
     }
 
-    return { imageUrl };
+    return { imageUrl, notes: notes.trim() };
   });
