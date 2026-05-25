@@ -159,7 +159,7 @@ async function downloadSelected() {
     try {
       await chrome.downloads.download({
         url: urls[i],
-        filename: `gallery-extractor/${filenameFromUrl(urls[i], i)}`,
+        filename: `extracion_img/${filenameFromUrl(urls[i], i)}`,
         conflictAction: "uniquify",
       });
     } catch (e) {

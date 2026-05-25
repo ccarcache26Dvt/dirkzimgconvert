@@ -83,6 +83,7 @@ export function UrlImageExtractor() {
     }
     setDownloading(true);
     const zip = new JSZip();
+    const folder = zip.folder("extracion_img")!;
     let ok = 0;
     let fail = 0;
     await Promise.all(
@@ -91,7 +92,7 @@ export function UrlImageExtractor() {
           const r = await fetch(u, { mode: "cors" });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const blob = await r.blob();
-          zip.file(filenameFromUrl(u, i), blob);
+          folder.file(filenameFromUrl(u, i), blob);
           ok++;
         } catch {
           fail++;
@@ -106,7 +107,7 @@ export function UrlImageExtractor() {
     const blob = await zip.generateAsync({ type: "blob" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "images.zip";
+    a.download = "extracion_img.zip";
     a.click();
     URL.revokeObjectURL(a.href);
     toast.success(`Descargadas ${ok}${fail ? ` (${fail} fallaron)` : ""}`);
