@@ -40,7 +40,9 @@ export function UrlImageExtractor() {
       } else {
         setImages(res.images);
         setSelected(new Set(res.images));
-        toast.success(`Se encontraron ${res.images.length} imágenes`);
+        toast.success("Extracción realizada", {
+          description: `${res.images.length} imágenes encontradas en ${res.pagesScanned} página(s) analizada(s). Para una extracción exacta usar extensión.`,
+        });
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al extraer imágenes");
