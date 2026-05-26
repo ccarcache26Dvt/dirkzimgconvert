@@ -439,8 +439,26 @@ export function ImageConverter() {
         style={{ background: "var(--gradient-accent)" }}
         aria-hidden
       />
-      <div className="relative mx-auto max-w-5xl px-6 py-16">
-        <div className="mb-6 flex justify-end gap-2">
+      <div className="relative mx-auto max-w-5xl px-6 py-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img
+              src={logoRoyal}
+              alt="Image Converter Right"
+              className="rounded-full w-14 h-14 object-contain shrink-0"
+            />
+            <div className="flex flex-col">
+              <h1
+                className="bg-clip-text text-xl font-bold tracking-tight text-transparent lg:text-3xl"
+                style={{ backgroundImage: "var(--gradient-primary)" }}
+              >
+                Image Converter Right
+              </h1>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Sparkles className="h-3 w-3" /> 100% privado
+              </span>
+            </div>
+          </div>
           <Button
             onClick={clearAll}
             variant="outline"
@@ -450,27 +468,11 @@ export function ImageConverter() {
             <Trash2 className="h-4 w-4" /> Limpiar todo
           </Button>
         </div>
-        <header className="mb-12 text-center">
-          <img
-            src={logoRoyal}
-            alt="Image Converter Right"
-            className="mx-auto mb-6 rounded-full w-56 h-56 object-contain"
-          />
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            Image Converter Right · 100% privado
-          </div>
-          <h1
-            className="bg-clip-text text-2xl font-bold tracking-tight text-transparent lg:text-6xl lg:h-20"
-            style={{ backgroundImage: "var(--gradient-primary)" }}
-          >
-            Image Converter Right
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-            Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce
-            el peso de tus imágenes.
-          </p>
-        </header>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce el
+          peso de tus imágenes.
+        </p>
+
 
 
         <section
