@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ImageConverter } from "@/components/ImageConverter";
+import { Dashboard } from "@/components/Dashboard";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <>
-      <ImageConverter />
+      <Dashboard />
       <Toaster richColors position="top-center" />
     </>
   );
