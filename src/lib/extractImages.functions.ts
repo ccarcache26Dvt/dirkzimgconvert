@@ -54,34 +54,86 @@ function extractImageUrls(html: string, baseUrl: string): string[] {
     push(m[1]);
   }
 
+  // URLs embedded in <script> JSON blobs (SPA / infinite-scroll content)
+  for (const m of html.matchAll(
+    /https?:\\?\/\\?\/[^\s"'<>()]+?\.(?:jpe?g|png|webp|gif|bmp|tiff?|heic|avif)(?:\?[^\s"'<>()]*)?/gi,
+  )) {
+    push(m[0].replace(/\\\//g, "/"));
+  }
+
   return Array.from(found);
+}
+
+async function fetchHtml(url: string): Promise<{ html: string; finalUrl: string } | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; ImageConverterRight/1.0; +https://dirkzimgconvert.lovable.app)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("html")) return null;
+    return { html: await res.text(), finalUrl: res.url || url };
+  } catch {
+    return null;
+  }
 }
 
 export const extractImagesFromUrl = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     try {
-      const res = await fetch(data.url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; ImageConverterRight/1.0; +https://dirkzimgconvert.lovable.app)",
-          Accept: "text/html,application/xhtml+xml",
-        },
-        redirect: "follow",
-      });
-      if (!res.ok) {
-        return { images: [] as string[], error: `El sitio respondió ${res.status} ${res.statusText}` };
+      const first = await fetchHtml(data.url);
+      if (!first) {
+        return {
+          images: [] as string[],
+          error: "El sitio no respondió o no devolvió HTML",
+          pagesScanned: 0,
+        };
       }
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("html")) {
-        return { images: [] as string[], error: `Tipo de contenido no soportado: ${contentType}` };
+      const allImages = new Set<string>(extractImageUrls(first.html, first.finalUrl));
+      let pagesScanned = 1;
+
+      // "Scroll" simulation: try common pagination patterns to surface more images
+      const baseUrl = new URL(first.finalUrl);
+      const candidates = new Set<string>();
+      for (let p = 2; p <= 4; p++) {
+        const u1 = new URL(baseUrl.toString());
+        u1.searchParams.set("page", String(p));
+        candidates.add(u1.toString());
+        const u2 = new URL(baseUrl.toString());
+        u2.searchParams.set("p", String(p));
+        candidates.add(u2.toString());
       }
-      const html = await res.text();
-      const finalUrl = res.url || data.url;
-      const images = extractImageUrls(html, finalUrl);
-      return { images, error: null as string | null };
+      // Follow <link rel="next"> if present
+      const nextMatch = first.html.match(
+        /<link\b[^>]*?\brel\s*=\s*["']next["'][^>]*?\bhref\s*=\s*["']([^"']+)["']/i,
+      );
+      if (nextMatch) {
+        const abs = normalizeUrl(nextMatch[1], first.finalUrl);
+        if (abs) candidates.add(abs);
+      }
+
+      const extraPages = await Promise.all(
+        Array.from(candidates).slice(0, 4).map((u) => fetchHtml(u)),
+      );
+      for (const page of extraPages) {
+        if (!page) continue;
+        pagesScanned++;
+        for (const img of extractImageUrls(page.html, page.finalUrl)) allImages.add(img);
+      }
+
+      return { images: Array.from(allImages), error: null as string | null, pagesScanned };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
-      return { images: [] as string[], error: `No se pudo obtener el sitio: ${msg}` };
+      return {
+        images: [] as string[],
+        error: `No se pudo obtener el sitio: ${msg}`,
+        pagesScanned: 0,
+      };
     }
   });
