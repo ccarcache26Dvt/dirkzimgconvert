@@ -27,10 +27,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import logoRoyal from "@/assets/logo-royal.png";
-import { UrlImageExtractor } from "@/components/UrlImageExtractor";
-import { MejorarCalidadImg } from "@/components/MejorarCalidadImg";
 
 type ConvertedItem = {
   id: string;
