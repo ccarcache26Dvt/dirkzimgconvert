@@ -17,8 +17,16 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Download, FileArchive, FolderUp, ImageUp, Loader2, Minimize2, Sparkles, Trash2 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  Download,
+  FileArchive,
+  FolderUp,
+  ImageUp,
+  Loader2,
+  Minimize2,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import logoRoyal from "@/assets/logo-royal.png";
 
 type ConvertedItem = {
@@ -111,7 +119,10 @@ export function ImageConverter() {
     const videos = files.filter(isVideoFile);
     if (videos.length > 0) {
       toast.error("No se aceptan videos", {
-        description: `Detectado: ${videos.slice(0, 3).map((v) => v.name).join(", ")}${videos.length > 3 ? "…" : ""}`,
+        description: `Detectado: ${videos
+          .slice(0, 3)
+          .map((v) => v.name)
+          .join(", ")}${videos.length > 3 ? "…" : ""}`,
       });
       return true;
     }
@@ -345,10 +356,7 @@ export function ImageConverter() {
     }
   };
 
-  const onDragOver = (
-    e: React.DragEvent<HTMLButtonElement>,
-    target: Exclude<DropTarget, null>,
-  ) => {
+  const onDragOver = (e: React.DragEvent<HTMLButtonElement>, target: Exclude<DropTarget, null>) => {
     e.preventDefault();
     if (!busy) setDragOver(target);
   };
@@ -422,19 +430,35 @@ export function ImageConverter() {
     }`;
 
   return (
-    <div className="relative min-h-screen capitalize" style={{ background: "var(--gradient-soft)" }}>
+    <div
+      className="relative min-h-screen capitalize"
+      style={{ background: "var(--gradient-soft)" }}
+    >
       <div
         className="pointer-events-none absolute inset-0"
         style={{ background: "var(--gradient-accent)" }}
         aria-hidden
       />
-      <div className="relative mx-auto max-w-5xl px-6 py-16">
-        <div className="mb-6 flex justify-end gap-2">
-          <Button asChild variant="outline" className="rounded-full">
-            <a href="https://orderimgdirkz.lovable.app/" target="_blank" rel="noopener noreferrer">
-              Ordenar imágenes
-            </a>
-          </Button>
+      <div className="relative mx-auto max-w-5xl px-6 py-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img
+              src={logoRoyal}
+              alt="Image Converter Right"
+              className="rounded-full w-14 h-14 object-contain shrink-0"
+            />
+            <div className="flex flex-col">
+              <h1
+                className="bg-clip-text text-xl font-bold tracking-tight text-transparent lg:text-3xl"
+                style={{ backgroundImage: "var(--gradient-primary)" }}
+              >
+                Image Converter Right
+              </h1>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Sparkles className="h-3 w-3" /> 100% privado
+              </span>
+            </div>
+          </div>
           <Button
             onClick={clearAll}
             variant="outline"
@@ -443,29 +467,13 @@ export function ImageConverter() {
           >
             <Trash2 className="h-4 w-4" /> Limpiar todo
           </Button>
-          <ThemeToggle />
         </div>
-        <header className="mb-12 text-center">
-          <img
-            src={logoRoyal}
-            alt="Image Converter Right"
-            className="mx-auto mb-6 rounded-full w-56 h-56 object-contain"
-          />
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            Image Converter Right · 100% privado
-          </div>
-          <h1
-            className="bg-clip-text text-2xl font-bold tracking-tight text-transparent lg:text-6xl lg:h-20"
-            style={{ backgroundImage: "var(--gradient-primary)" }}
-          >
-            Image Converter Right
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-            Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce
-            el peso de tus imágenes.
-          </p>
-        </header>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Convierte imágenes individuales o carpetas completas a JPG, PNG, WebP o TIFF, o reduce el
+          peso de tus imágenes.
+        </p>
+
+
 
         <section
           className="rounded-3xl border border-border bg-card p-8"
@@ -688,10 +696,7 @@ export function ImageConverter() {
             </div>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
               {compressed.map((item) => {
-                const saved = Math.max(
-                  0,
-                  Math.round((1 - item.newSize / item.originalSize) * 100),
-                );
+                const saved = Math.max(0, Math.round((1 - item.newSize / item.originalSize) * 100));
                 return (
                   <div
                     key={item.id}
