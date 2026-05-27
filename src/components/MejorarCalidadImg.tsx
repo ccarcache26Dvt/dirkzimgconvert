@@ -1,7 +1,18 @@
 import { useRef, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Upload, Download, Loader2, Trash2, FolderOpen, MessageSquare } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Sparkles,
+  Upload,
+  Download,
+  Loader2,
+  Trash2,
+  FolderOpen,
+  MessageSquare,
+  Send,
+  Scissors,
+} from "lucide-react";
 import { toast } from "sonner";
 import { enhanceImage } from "@/lib/enhanceImage.functions";
 
@@ -10,6 +21,7 @@ type ChatMsg = { role: "user" | "ai"; text: string };
 type ResultItem = {
   id: string;
   name: string;
+  mime: string;
   originalUrl: string;
   resultUrl: string | null;
   status: "pending" | "loading" | "done" | "error";
@@ -29,6 +41,23 @@ function fileToBase64(file: File): Promise<{ base64: string; mime: string }> {
   });
 }
 
+async function urlToBase64(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = reader.result as string;
+      resolve(r.split(",")[1]);
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+const REMOVE_BG_PROMPT =
+  "Remove the background of this image completely. Keep ONLY the main subject perfectly intact with clean, sharp edges. Replace the background with full transparency (alpha channel). Do not crop, do not change the framing, do not add shadows or borders. Return a PNG with transparent background. Then write a short Spanish note: 'Fondo eliminado, sujeto preservado con bordes limpios.'";
+
 export function MejorarCalidadImg() {
   const callEnhance = useServerFn(enhanceImage);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,71 +66,126 @@ export function MejorarCalidadImg() {
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [promptInput, setPromptInput] = useState("");
 
   const pushChat = (m: ChatMsg) => setChat((c) => [...c, m]);
 
+  const runEnhance = useCallback(
+    async (
+      targets: { id: string; name: string; base64: string; mime: string }[],
+      prompt?: string
+    ) => {
+      setBusy(true);
+      for (const t of targets) {
+        setItems((prev) =>
+          prev.map((p) => (p.id === t.id ? { ...p, status: "loading" } : p))
+        );
+        try {
+          const { imageUrl, notes } = await callEnhance({
+            data: { imageBase64: t.base64, mimeType: t.mime, prompt },
+          });
+          setItems((prev) =>
+            prev.map((p) =>
+              p.id === t.id ? { ...p, resultUrl: imageUrl, status: "done" } : p
+            )
+          );
+          pushChat({
+            role: "ai",
+            text: `✨ ${t.name}\n${notes || "Imagen procesada."}`,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Error";
+          setItems((prev) =>
+            prev.map((p) =>
+              p.id === t.id ? { ...p, status: "error", error: msg } : p
+            )
+          );
+          pushChat({ role: "ai", text: `❌ ${t.name}: ${msg}` });
+        }
+      }
+      setBusy(false);
+    },
+    [callEnhance]
+  );
+
   const processFiles = useCallback(
     async (files: File[]) => {
-      const imgs = files.filter((f) => f.type.startsWith("image/") && f.size <= 8 * 1024 * 1024);
+      const imgs = files.filter(
+        (f) => f.type.startsWith("image/") && f.size <= 8 * 1024 * 1024
+      );
       if (imgs.length === 0) {
         toast.error("No hay imágenes válidas (máx. 8 MB cada una)");
         return;
       }
       if (imgs.length < files.length) {
-        toast.warning(`${files.length - imgs.length} archivo(s) ignorados (no son imagen o >8MB)`);
+        toast.warning(
+          `${files.length - imgs.length} archivo(s) ignorados (no son imagen o >8MB)`
+        );
       }
 
       const newItems: ResultItem[] = imgs.map((f) => ({
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: f.name,
+        mime: f.type || "image/png",
         originalUrl: URL.createObjectURL(f),
         resultUrl: null,
         status: "pending",
       }));
       setItems((prev) => [...prev, ...newItems]);
       pushChat({ role: "user", text: `Subí ${imgs.length} imagen(es) para mejorar.` });
-      setBusy(true);
 
-      for (let i = 0; i < imgs.length; i++) {
-        const f = imgs[i];
-        const item = newItems[i];
-        setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "loading" } : p)));
-        try {
+      const targets = await Promise.all(
+        imgs.map(async (f, i) => {
           const { base64, mime } = await fileToBase64(f);
-          const { imageUrl, notes } = await callEnhance({
-            data: { imageBase64: base64, mimeType: mime },
-          });
-          setItems((prev) =>
-            prev.map((p) =>
-              p.id === item.id ? { ...p, resultUrl: imageUrl, status: "done" } : p
-            )
-          );
-          pushChat({
-            role: "ai",
-            text: `✨ ${f.name}\n${notes || "Imagen mejorada: nitidez, color y detalles optimizados."}`,
-          });
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Error";
-          setItems((prev) =>
-            prev.map((p) => (p.id === item.id ? { ...p, status: "error", error: msg } : p))
-          );
-          pushChat({ role: "ai", text: `❌ ${f.name}: ${msg}` });
-        }
-      }
-      setBusy(false);
+          return { id: newItems[i].id, name: f.name, base64, mime };
+        })
+      );
+      await runEnhance(targets);
       toast.success("Procesamiento completado");
     },
-    [callEnhance]
+    [runEnhance]
   );
+
+  const reprocessAll = useCallback(
+    async (prompt: string, label: string) => {
+      if (items.length === 0) {
+        toast.error("Primero sube al menos una imagen");
+        return;
+      }
+      pushChat({ role: "user", text: label });
+      const targets = await Promise.all(
+        items.map(async (it) => ({
+          id: it.id,
+          name: it.name,
+          base64: await urlToBase64(it.originalUrl),
+          mime: it.mime,
+        }))
+      );
+      await runEnhance(targets, prompt);
+      toast.success("Listo");
+    },
+    [items, runEnhance]
+  );
+
+  const sendPrompt = async () => {
+    const p = promptInput.trim();
+    if (!p) return;
+    setPromptInput("");
+    await reprocessAll(p, p);
+  };
+
+  const removeBackground = async () => {
+    await reprocessAll(REMOVE_BG_PROMPT, "🪄 Quitar fondo de las imágenes");
+  };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const files: File[] = [];
-    const items = e.dataTransfer.items;
-    if (items && items.length) {
-      for (let i = 0; i < items.length; i++) {
-        const f = items[i].getAsFile();
+    const dtItems = e.dataTransfer.items;
+    if (dtItems && dtItems.length) {
+      for (let i = 0; i < dtItems.length; i++) {
+        const f = dtItems[i].getAsFile();
         if (f) files.push(f);
       }
     } else {
@@ -124,6 +208,7 @@ export function MejorarCalidadImg() {
     items.forEach((it) => URL.revokeObjectURL(it.originalUrl));
     setItems([]);
     setChat([]);
+    setPromptInput("");
     toast.success("Todo limpio");
   };
 
@@ -138,7 +223,7 @@ export function MejorarCalidadImg() {
           <h2 className="text-xl font-bold text-foreground">Mejorar calidad con IA</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Sube imágenes, carpetas completas o arrástralas. La IA mejora nitidez, color y detalles sin recortar.
+          Sube imágenes o carpetas. Pide cambios por chat o quita el fondo con un clic.
         </p>
       </div>
 
@@ -178,9 +263,7 @@ export function MejorarCalidadImg() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
-          dragOver
-            ? "border-primary bg-primary/10"
-            : "border-border bg-background/40"
+          dragOver ? "border-primary bg-primary/10" : "border-border bg-background/40"
         }`}
       >
         <p className="text-sm text-muted-foreground">
@@ -198,6 +281,14 @@ export function MejorarCalidadImg() {
             className="gap-2"
           >
             <FolderOpen className="h-4 w-4" /> Subir carpeta
+          </Button>
+          <Button
+            onClick={removeBackground}
+            disabled={busy || items.length === 0}
+            variant="secondary"
+            className="gap-2"
+          >
+            <Scissors className="h-4 w-4" /> Quitar fondo
           </Button>
           <Button onClick={clearAll} variant="outline" disabled={busy} className="gap-2">
             <Trash2 className="h-4 w-4" /> Limpiar
@@ -220,7 +311,7 @@ export function MejorarCalidadImg() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Mejorada
+                    Resultado
                   </p>
                   {it.status === "done" && (
                     <Button size="sm" variant="ghost" onClick={() => downloadOne(it)} className="gap-1">
@@ -228,11 +319,19 @@ export function MejorarCalidadImg() {
                     </Button>
                   )}
                 </div>
-                <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-background">
+                <div
+                  className="relative overflow-hidden rounded-xl border border-primary/40"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)",
+                    backgroundSize: "16px 16px",
+                    backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
+                  }}
+                >
                   {it.resultUrl ? (
-                    <img src={it.resultUrl} alt="Mejorada" className="h-auto w-full object-contain" />
+                    <img src={it.resultUrl} alt="Resultado" className="h-auto w-full object-contain" />
                   ) : (
-                    <div className="flex aspect-video items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex aspect-video items-center justify-center bg-background text-sm text-muted-foreground">
                       {it.status === "loading" ? (
                         <span className="flex items-center gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" /> Procesando...
@@ -251,13 +350,13 @@ export function MejorarCalidadImg() {
         </div>
       )}
 
-      {chat.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-border bg-background/50 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Mejoras realizadas</h3>
-          </div>
-          <div className="max-h-72 space-y-2 overflow-y-auto pr-2">
+      <div className="mt-6 rounded-2xl border border-border bg-background/50 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Chat de edición</h3>
+        </div>
+        {chat.length > 0 && (
+          <div className="mb-3 max-h-72 space-y-2 overflow-y-auto pr-2">
             {chat.map((m, i) => (
               <div
                 key={i}
@@ -271,8 +370,32 @@ export function MejorarCalidadImg() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void sendPrompt();
+          }}
+          className="flex gap-2"
+        >
+          <Input
+            value={promptInput}
+            onChange={(e) => setPromptInput(e.target.value)}
+            placeholder='Ej: "haz el cielo más azul", "estilo acuarela", "quita la persona del fondo"'
+            disabled={busy}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={busy || !promptInput.trim() || items.length === 0} className="gap-2">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Enviar
+          </Button>
+        </form>
+        {items.length === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Sube al menos una imagen para empezar a editar por chat.
+          </p>
+        )}
+      </div>
     </section>
   );
 }
