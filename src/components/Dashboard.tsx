@@ -18,6 +18,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ImageConverter } from "@/components/ImageConverter";
 import { UrlImageExtractor } from "@/components/UrlImageExtractor";
 import { MejorarCalidadImg } from "@/components/MejorarCalidadImg";
+import { ChatsImg } from "@/components/ChatsImg";
 import logoRoyal from "@/assets/logo-royal.png";
 import {
   Download,
@@ -26,14 +27,16 @@ import {
   Link as LinkIcon,
   Puzzle,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 
-type SectionKey = "convert" | "url" | "enhance" | "extension";
+type SectionKey = "convert" | "url" | "enhance" | "generate" | "extension";
 
 const items: { key: SectionKey; title: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "convert", title: "Convertir / Comprimir", icon: ImageIcon },
   { key: "url", title: "Extraer desde URL", icon: LinkIcon },
   { key: "enhance", title: "Mejorar calidad IA", icon: Sparkles },
+  { key: "generate", title: "Generar imagen IA", icon: Wand2 },
   { key: "extension", title: "Extensión Chrome", icon: Puzzle },
 ];
 
