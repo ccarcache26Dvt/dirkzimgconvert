@@ -163,6 +163,11 @@ export function Dashboard() {
                 <ChatsImg />
               </div>
             )}
+            {section === "semitono" && (
+              <div className="mx-auto max-w-7xl px-4 py-8">
+                <SemitonoAi />
+              </div>
+            )}
             {section === "extension" && <ExtensionView />}
           </main>
         </div>
