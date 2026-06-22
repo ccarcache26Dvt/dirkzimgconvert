@@ -88,6 +88,25 @@
     }
     .grid::-webkit-scrollbar { width: 6px; }
     .grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .section-head {
+      grid-column: 1/-1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      margin-top: 4px;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-head:hover { background: rgba(139, 92, 246, 0.22); }
+    .section-head .folder { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%; }
+    .section-head .count { color: var(--muted); font-weight: 500; }
     .thumb {
       position: relative;
       aspect-ratio: 1;

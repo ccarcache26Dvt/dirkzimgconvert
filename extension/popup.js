@@ -1,4 +1,4 @@
-let images = [];
+let sections = []; // [{ title, images: [{url,w,h}] }]
 let selected = new Set();
 
 const $ = (id) => document.getElementById(id);
@@ -13,56 +13,75 @@ async function getActiveTab() {
 function scrapePage(autoScroll) {
   return new Promise((resolve) => {
     const collect = () => {
-      const urls = new Set();
+      const sectionsMap = []; // ordered
+      let current = { title: "general", images: [], seen: new Set() };
+      sectionsMap.push(current);
 
-      // <img> tags
-      document.querySelectorAll("img").forEach((img) => {
-        const src = img.currentSrc || img.src;
-        if (src && /^https?:\/\//i.test(src)) {
-          urls.add(JSON.stringify({
-            url: src,
-            w: img.naturalWidth || img.width || 0,
-            h: img.naturalHeight || img.height || 0,
-          }));
+      const startSection = (raw) => {
+        const title = (raw || "").replace(/\s+/g, " ").trim();
+        if (!title) return;
+        if (current.images.length === 0 && current.title === "general") {
+          current.title = title;
+          return;
         }
-        // srcset (highest)
-        if (img.srcset) {
-          const parts = img.srcset.split(",").map(s => s.trim().split(/\s+/)[0]).filter(Boolean);
-          parts.forEach(u => {
-            if (/^https?:\/\//i.test(u)) {
-              urls.add(JSON.stringify({ url: u, w: img.naturalWidth || 0, h: img.naturalHeight || 0 }));
-            }
-          });
-        }
-      });
+        if (current.title.toLowerCase() === title.toLowerCase()) return;
+        current = { title, images: [], seen: new Set() };
+        sectionsMap.push(current);
+      };
 
-      // background-image
-      document.querySelectorAll("*").forEach((el) => {
+      const pushUrl = (url, w, h) => {
+        if (!url || !/^https?:\/\//i.test(url)) return;
+        // dedupe globally so the same image only appears in the first matching section
+        if (globalSeen.has(url)) return;
+        globalSeen.add(url);
+        current.seen.add(url);
+        current.images.push({ url, w: w || 0, h: h || 0 });
+      };
+
+      const globalSeen = new Set();
+
+      const all = document.body ? document.body.querySelectorAll("*") : [];
+      all.forEach((el) => {
+        const tag = el.tagName;
+
+        if (/^H[1-4]$/.test(tag)) {
+          startSection(el.textContent || "");
+          return;
+        }
+
+        if (tag === "IMG") {
+          const src = el.currentSrc || el.src;
+          pushUrl(src, el.naturalWidth || el.width, el.naturalHeight || el.height);
+          if (el.srcset) {
+            el.srcset.split(",").map((s) => s.trim().split(/\s+/)[0]).forEach((u) => {
+              pushUrl(u, el.naturalWidth, el.naturalHeight);
+            });
+          }
+          for (const a of ["data-src", "data-original", "data-lazy-src", "data-hi-res-src"]) {
+            const v = el.getAttribute(a);
+            if (v) pushUrl(v, el.naturalWidth, el.naturalHeight);
+          }
+        } else if (tag === "SOURCE" && el.srcset) {
+          el.srcset.split(",").map((s) => s.trim().split(/\s+/)[0]).forEach((u) => pushUrl(u, 0, 0));
+        } else if (tag === "A" && el.href && /\.(jpe?g|png|webp|gif|bmp|tiff?|heic|avif)(\?|$)/i.test(el.href)) {
+          pushUrl(el.href, 0, 0);
+        }
+
+        // background-image
         const bg = getComputedStyle(el).backgroundImage;
         if (bg && bg !== "none") {
           const matches = bg.match(/url\(["']?(https?:[^"')]+)["']?\)/g) || [];
-          matches.forEach(m => {
+          matches.forEach((m) => {
             const u = m.replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
-            urls.add(JSON.stringify({ url: u, w: el.clientWidth, h: el.clientHeight }));
+            pushUrl(u, el.clientWidth, el.clientHeight);
           });
         }
       });
 
-      // <source> in <picture>
-      document.querySelectorAll("source[srcset]").forEach((s) => {
-        s.srcset.split(",").map(x => x.trim().split(/\s+/)[0]).forEach(u => {
-          if (/^https?:\/\//i.test(u)) urls.add(JSON.stringify({ url: u, w: 0, h: 0 }));
-        });
-      });
-
-      // <a href="...jpg|png|...">
-      document.querySelectorAll("a[href]").forEach((a) => {
-        if (/\.(jpe?g|png|webp|gif|bmp|tiff?|heic|avif)(\?|$)/i.test(a.href)) {
-          urls.add(JSON.stringify({ url: a.href, w: 0, h: 0 }));
-        }
-      });
-
-      return Array.from(urls).map(s => JSON.parse(s));
+      // Strip helper `seen` field; keep title/images
+      return sectionsMap
+        .filter((s) => s.images.length > 0)
+        .map((s) => ({ title: s.title, images: s.images }));
     };
 
     if (!autoScroll) {
@@ -101,7 +120,7 @@ async function scan(autoScroll) {
       func: scrapePage,
       args: [autoScroll],
     });
-    images = result || [];
+    sections = result || [];
     selected = new Set();
     render();
   } catch (e) {
@@ -110,30 +129,59 @@ async function scan(autoScroll) {
   }
 }
 
-function filtered() {
+function filteredSections() {
   const minW = parseInt($("minW").value) || 0;
   const minH = parseInt($("minH").value) || 0;
-  return images.filter(im => (im.w === 0 && im.h === 0) || (im.w >= minW && im.h >= minH));
+  return sections
+    .map((s) => ({
+      title: s.title,
+      images: s.images.filter((im) => (im.w === 0 && im.h === 0) || (im.w >= minW && im.h >= minH)),
+    }))
+    .filter((s) => s.images.length > 0);
+}
+
+function sanitizeFolder(s) {
+  const clean = (s || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+  return clean || "general";
 }
 
 function render() {
-  const list = filtered();
-  stats.innerHTML = `<strong>${list.length}</strong> imágenes · <strong>${selected.size}</strong> seleccionadas`;
+  const list = filteredSections();
+  const total = list.reduce((n, s) => n + s.images.length, 0);
+  stats.innerHTML = `<strong>${total}</strong> imágenes en <strong>${list.length}</strong> carpeta(s) · <strong>${selected.size}</strong> seleccionadas`;
   if (list.length === 0) {
     grid.innerHTML = '<div class="empty">No se encontraron imágenes que cumplan el filtro.</div>';
     return;
   }
   grid.innerHTML = "";
-  list.forEach((im) => {
-    const div = document.createElement("div");
-    div.className = "thumb" + (selected.has(im.url) ? " selected" : "");
-    div.innerHTML = `<img src="${im.url}" loading="lazy" referrerpolicy="no-referrer"/><div class="check">✓</div>`;
-    div.addEventListener("click", () => {
-      if (selected.has(im.url)) selected.delete(im.url);
-      else selected.add(im.url);
+  list.forEach((section) => {
+    const header = document.createElement("div");
+    header.className = "section-head";
+    const selCount = section.images.filter((im) => selected.has(im.url)).length;
+    header.innerHTML = `<span class="folder">📁 ${section.title}</span><span class="count">${selCount}/${section.images.length}</span>`;
+    header.addEventListener("click", () => {
+      const allIn = section.images.every((im) => selected.has(im.url));
+      if (allIn) section.images.forEach((im) => selected.delete(im.url));
+      else section.images.forEach((im) => selected.add(im.url));
       render();
     });
-    grid.appendChild(div);
+    grid.appendChild(header);
+
+    section.images.forEach((im) => {
+      const div = document.createElement("div");
+      div.className = "thumb" + (selected.has(im.url) ? " selected" : "");
+      div.innerHTML = `<img src="${im.url}" loading="lazy" referrerpolicy="no-referrer"/><div class="check">✓</div>`;
+      div.addEventListener("click", () => {
+        if (selected.has(im.url)) selected.delete(im.url);
+        else selected.add(im.url);
+        render();
+      });
+      grid.appendChild(div);
+    });
   });
 }
 
@@ -150,20 +198,26 @@ function filenameFromUrl(url, i) {
 }
 
 async function downloadSelected() {
-  const urls = Array.from(selected);
-  if (urls.length === 0) {
+  if (selected.size === 0) {
     alert("Selecciona al menos una imagen.");
     return;
   }
-  for (let i = 0; i < urls.length; i++) {
-    try {
-      await chrome.downloads.download({
-        url: urls[i],
-        filename: `extracion_img/${filenameFromUrl(urls[i], i)}`,
-        conflictAction: "uniquify",
-      });
-    } catch (e) {
-      console.error("Falló descarga:", urls[i], e);
+  const list = filteredSections();
+  let i = 0;
+  for (const section of list) {
+    const folder = sanitizeFolder(section.title);
+    for (const im of section.images) {
+      if (!selected.has(im.url)) continue;
+      try {
+        await chrome.downloads.download({
+          url: im.url,
+          filename: `extracion_img/${folder}/${filenameFromUrl(im.url, i)}`,
+          conflictAction: "uniquify",
+        });
+      } catch (e) {
+        console.error("Falló descarga:", im.url, e);
+      }
+      i++;
     }
   }
 }
@@ -171,9 +225,10 @@ async function downloadSelected() {
 $("scan").addEventListener("click", () => scan(false));
 $("scrollScan").addEventListener("click", () => scan(true));
 $("selectAll").addEventListener("click", () => {
-  const list = filtered();
-  if (selected.size === list.length) selected.clear();
-  else list.forEach(im => selected.add(im.url));
+  const list = filteredSections();
+  const allUrls = list.flatMap((s) => s.images.map((im) => im.url));
+  if (selected.size === allUrls.length) selected.clear();
+  else allUrls.forEach((u) => selected.add(u));
   render();
 });
 $("download").addEventListener("click", downloadSelected);
