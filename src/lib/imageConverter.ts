@@ -43,9 +43,22 @@ async function decodeHeic(file: File): Promise<Blob> {
   if (typeof window === "undefined") {
     throw new Error("La conversión HEIC solo está disponible en el navegador");
   }
-  const { default: heic2any } = await import("heic2any");
-  const result = await heic2any({ blob: file, toType: "image/png" });
-  return Array.isArray(result) ? result[0] : result;
+  // Intento 1: heic-to (más moderno, soporta más variantes HEIF/HEVC)
+  try {
+    const { heicTo } = await import("heic-to");
+    const blob = await heicTo({ blob: file, type: "image/png", quality: 0.95 });
+    return blob as Blob;
+  } catch (err1) {
+    // Intento 2: heic2any como fallback
+    try {
+      const { default: heic2any } = await import("heic2any");
+      const result = await heic2any({ blob: file, toType: "image/png" });
+      return Array.isArray(result) ? result[0] : result;
+    } catch (err2) {
+      const msg = (err2 as Error)?.message || (err1 as Error)?.message || "formato HEIC no soportado";
+      throw new Error(`No se pudo decodificar HEIC: ${msg}`);
+    }
+  }
 }
 
 async function decodeTiff(file: File): Promise<Blob> {
