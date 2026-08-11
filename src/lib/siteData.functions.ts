@@ -6,7 +6,8 @@ const inputSchema = z.object({
   url: z.string().trim().max(2048).optional(),
 });
 
-export type SiteData = Record<string, unknown>;
+export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
+export type SiteData = { [k: string]: Json };
 
 export type SiteDataResult = {
   source: "api" | "scrape" | null;
@@ -46,7 +47,7 @@ function metaContent(html: string, key: string): string {
   return m ? decode(m[1]) : "";
 }
 
-function buildFromHtml(html: string, baseUrl: string): SiteData {
+function buildFromHtml(html: string, baseUrl: string) {
   const title = decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").split(/[|\-–]/)[0]);
   const name = metaContent(html, "og:site_name") || title || new URL(baseUrl).hostname;
 
@@ -277,7 +278,7 @@ export const fetchSiteData = createServerFn({ method: "POST" })
       if (!page) {
         return { source: null, data: null, error: "No se pudo leer el sitio web.", notes };
       }
-      const built = buildFromHtml(page.html, page.finalUrl);
+      const built = buildFromHtml(page.html, page.finalUrl) as SiteData;
       (built as { docId: string }).docId = data.id ?? "";
       notes.push("Data generada extrayendo el sitio web.");
       return { source: "scrape", data: built, error: null, notes };
