@@ -278,7 +278,7 @@ export const fetchSiteData = createServerFn({ method: "POST" })
       if (!page) {
         return { source: null, data: null, error: "No se pudo leer el sitio web.", notes };
       }
-      const built = buildFromHtml(page.html, page.finalUrl) as SiteData;
+      const built = buildFromHtml(page.html, page.finalUrl) as unknown as SiteData;
       (built as { docId: string }).docId = data.id ?? "";
       notes.push("Data generada extrayendo el sitio web.");
       return { source: "scrape", data: built, error: null, notes };
