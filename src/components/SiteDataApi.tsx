@@ -1,4 +1,5 @@
 import { useState } from "react";
+import JSZip from "jszip";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchSiteData, type SiteDataResult } from "@/lib/siteData.functions";
 import { Button } from "@/components/ui/button";
@@ -27,11 +28,68 @@ export function SiteDataApi() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SiteDataResult | null>(null);
 
+  const [downloading, setDownloading] = useState(false);
+
   const data = (result?.data ?? null) as Anyish | null;
   const principal = (data?.["dbPrincipal"] ?? {}) as Anyish;
   const gallery = (data?.["gallery"] ?? []) as string[];
   const services = (data?.["dbServices"] ?? []) as Anyish[];
   const redes = ((data?.["dbSocialMedia"] as Anyish)?.["redes"] ?? []) as Anyish[];
+
+  const allImages: string[] = Array.from(
+    new Set(
+      [
+        ...gallery,
+        ...(((data?.["landings"] as Anyish[]) ?? []).flatMap(
+          (l) => (l["gallery"] as string[]) ?? [],
+        )),
+        ...(((data?.["stock"] as string[]) ?? [])),
+        ...services.flatMap((s) =>
+          (((s["description"] as Anyish[]) ?? []).map((d) => String(d["img"] ?? ""))),
+        ),
+        String(principal["logo"] ?? ""),
+      ].filter((u) => typeof u === "string" && /^https?:/i.test(u)),
+    ),
+  );
+
+  const downloadAll = async () => {
+    if (allImages.length === 0) return;
+    setDownloading(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder("our_img")!;
+      let ok = 0;
+      await Promise.all(
+        allImages.map(async (u, i) => {
+          try {
+            const r = await fetch(u, { mode: "cors" });
+            if (!r.ok) throw new Error(String(r.status));
+            const blob = await r.blob();
+            const base = (u.split("?")[0].split("/").pop() || `image-${i}`).slice(-80);
+            const name = /\.\w{2,5}$/.test(base) ? base : `${base}.jpg`;
+            folder.file(folder.file(name) ? `${i}_${name}` : name, blob);
+            ok++;
+          } catch {
+            /* CORS or network */
+          }
+        }),
+      );
+      if (ok === 0) {
+        toast.error("No se pudo descargar ninguna imagen (CORS del sitio)");
+        return;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "our_img.zip";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success(`Descargadas ${ok}/${allImages.length} imágenes`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
 
   const search = async () => {
     if (!id.trim() && !url.trim()) {
