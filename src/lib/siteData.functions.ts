@@ -47,7 +47,42 @@ function metaContent(html: string, key: string): string {
   return m ? decode(m[1]) : "";
 }
 
-function buildFromHtml(html: string, baseUrl: string) {
+const IMG_EXT = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(\?|#|$)/i;
+
+export function collectImages(html: string, baseUrl: string): string[] {
+  const out: string[] = [];
+  const push = (raw?: string) => {
+    if (!raw) return;
+    const cleaned = raw.trim().replace(/\\\//g, "/").replace(/&amp;/gi, "&");
+    if (!cleaned || cleaned.startsWith("data:")) return;
+    const u = abs(cleaned, baseUrl);
+    if (!u || !/^https?:/i.test(u)) return;
+    if (/\.svg(\?|#|$)/i.test(u)) return;
+    out.push(u);
+  };
+
+  // src / lazy attributes
+  for (const m of html.matchAll(
+    /\b(?:src|data-src|data-lazy-src|data-original|data-image|data-bg|data-large|data-full)\s*=\s*["']([^"']+)["']/gi,
+  )) {
+    if (IMG_EXT.test(m[1]) || /\/image|\/img|cdn|uploads/i.test(m[1])) push(m[1]);
+  }
+  // srcset (take every candidate)
+  for (const m of html.matchAll(/\b(?:srcset|data-srcset)\s*=\s*["']([^"']+)["']/gi)) {
+    for (const part of m[1].split(",")) push(part.trim().split(/\s+/)[0]);
+  }
+  // css background-image
+  for (const m of html.matchAll(/url\(\s*["']?([^"')]+\.(?:jpe?g|png|webp|gif|avif))["']?\s*\)/gi)) {
+    push(m[1]);
+  }
+  // links to images + urls inside JSON/scripts
+  for (const m of html.matchAll(/https?:\\?\/\\?\/[^\s"'<>()\\]+\.(?:jpe?g|png|webp|gif|avif)/gi)) {
+    push(m[0]);
+  }
+  return uniq(out);
+}
+
+function buildFromHtml(html: string, baseUrl: string, allImages?: string[]) {
   const title = decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").split(/[|\-–]/)[0]);
   const name = metaContent(html, "og:site_name") || title || new URL(baseUrl).hostname;
 
@@ -55,11 +90,8 @@ function buildFromHtml(html: string, baseUrl: string) {
     (html.match(/<link\b[^>]*?rel\s*=\s*["'][^"']*icon[^"']*["'][^>]*?href\s*=\s*["']([^"']+)["']/i)?.[1] ??
       "") || "";
 
-  const images = uniq(
-    Array.from(html.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi))
-      .map((m) => abs(m[1], baseUrl) ?? "")
-      .filter((u) => /^https?:/i.test(u) && !/\.svg(\?|$)/i.test(u)),
-  );
+  const images = allImages?.length ? uniq(allImages) : collectImages(html, baseUrl);
+
 
   const logo =
     images.find((u) => /logo/i.test(u)) || metaContent(html, "og:image") || images[0] || "";
