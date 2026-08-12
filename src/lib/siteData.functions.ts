@@ -311,11 +311,44 @@ export const fetchSiteData = createServerFn({ method: "POST" })
       if (!page) {
         return { source: null, data: null, error: "No se pudo leer el sitio web.", notes };
       }
-      const built = buildFromHtml(page.html, page.finalUrl) as unknown as SiteData;
+
+      const origin = new URL(page.finalUrl).origin;
+      const internal = uniq(
+        Array.from(page.html.matchAll(/href\s*=\s*["']([^"'#]+)["']/gi))
+          .map((m) => abs(m[1], page.finalUrl) ?? "")
+          .filter((u) => u.startsWith(origin) && !IMG_EXT.test(u) && !/\.(pdf|zip|mp4)$/i.test(u)),
+      ).filter((u) => u !== page.finalUrl);
+
+      const priority = internal
+        .sort((a, b) => {
+          const w = (u: string) =>
+            /gallery|galer|project|portfolio|work|service|about|contact/i.test(u) ? 0 : 1;
+          return w(a) - w(b);
+        })
+        .slice(0, 12);
+
+      const pages = await Promise.all(priority.map((u) => fetchHtml(u)));
+      const extraHtml: string[] = [];
+      let images = collectImages(page.html, page.finalUrl);
+      for (const p of pages) {
+        if (!p) continue;
+        extraHtml.push(p.html);
+        images = images.concat(collectImages(p.html, p.finalUrl));
+      }
+      images = uniq(images);
+
+      const built = buildFromHtml(
+        [page.html, ...extraHtml].join("\n"),
+        page.finalUrl,
+        images,
+      ) as unknown as SiteData;
       (built as { docId: string }).docId = data.id ?? "";
-      notes.push("Data generada extrayendo el sitio web.");
+      notes.push(
+        `Data generada extrayendo el sitio web (${1 + extraHtml.length} páginas, ${images.length} imágenes).`,
+      );
       return { source: "scrape", data: built, error: null, notes };
     }
+
 
     return {
       source: null,
