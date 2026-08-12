@@ -171,6 +171,11 @@ export function Dashboard() {
                 <SemitonoAi />
               </div>
             )}
+            {section === "data" && (
+              <div className="mx-auto max-w-5xl px-6 py-10">
+                <SiteDataApi />
+              </div>
+            )}
             {section === "extension" && <ExtensionView />}
           </main>
         </div>
