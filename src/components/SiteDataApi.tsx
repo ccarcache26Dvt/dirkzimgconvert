@@ -167,22 +167,45 @@ export function SiteDataApi() {
               </Card>
             )}
 
-            {gallery.length > 0 && (
-              <Card className="p-4">
-                <h4 className="mb-2 font-semibold text-foreground">Galería ({gallery.length})</h4>
+            {allImages.length > 0 && (
+              <Card className="p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="font-semibold text-foreground">
+                    Imágenes ({allImages.length})
+                  </h4>
+                  <Button size="sm" onClick={downloadAll} disabled={downloading} className="gap-2">
+                    {downloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    Descargar todas (ZIP)
+                  </Button>
+                </div>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                  {gallery.slice(0, 20).map((g, i) => (
-                    <img
-                      key={i}
-                      src={g}
-                      alt={`img-${i}`}
-                      loading="lazy"
-                      className="aspect-square w-full rounded-md object-cover bg-muted"
-                    />
+                  {allImages.map((g, i) => (
+                    <div key={g} className="group relative">
+                      <img
+                        src={g}
+                        alt={`img-${i}`}
+                        loading="lazy"
+                        className="aspect-square w-full rounded-md object-cover bg-muted"
+                      />
+                      <a
+                        href={g}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="absolute inset-x-1 bottom-1 rounded bg-background/90 px-2 py-1 text-center text-[10px] opacity-0 transition group-hover:opacity-100"
+                      >
+                        Descargar
+                      </a>
+                    </div>
                   ))}
                 </div>
               </Card>
             )}
+
           </TabsContent>
 
           <TabsContent value="json" className="pt-4 space-y-3">
