@@ -47,7 +47,42 @@ function metaContent(html: string, key: string): string {
   return m ? decode(m[1]) : "";
 }
 
-function buildFromHtml(html: string, baseUrl: string) {
+const IMG_EXT = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)(\?|#|$)/i;
+
+export function collectImages(html: string, baseUrl: string): string[] {
+  const out: string[] = [];
+  const push = (raw?: string) => {
+    if (!raw) return;
+    const cleaned = raw.trim().replace(/\\\//g, "/").replace(/&amp;/gi, "&");
+    if (!cleaned || cleaned.startsWith("data:")) return;
+    const u = abs(cleaned, baseUrl);
+    if (!u || !/^https?:/i.test(u)) return;
+    if (/\.svg(\?|#|$)/i.test(u)) return;
+    out.push(u);
+  };
+
+  // src / lazy attributes
+  for (const m of html.matchAll(
+    /\b(?:src|data-src|data-lazy-src|data-original|data-image|data-bg|data-large|data-full)\s*=\s*["']([^"']+)["']/gi,
+  )) {
+    if (IMG_EXT.test(m[1]) || /\/image|\/img|cdn|uploads/i.test(m[1])) push(m[1]);
+  }
+  // srcset (take every candidate)
+  for (const m of html.matchAll(/\b(?:srcset|data-srcset)\s*=\s*["']([^"']+)["']/gi)) {
+    for (const part of m[1].split(",")) push(part.trim().split(/\s+/)[0]);
+  }
+  // css background-image
+  for (const m of html.matchAll(/url\(\s*["']?([^"')]+\.(?:jpe?g|png|webp|gif|avif))["']?\s*\)/gi)) {
+    push(m[1]);
+  }
+  // links to images + urls inside JSON/scripts
+  for (const m of html.matchAll(/https?:\\?\/\\?\/[^\s"'<>()\\]+\.(?:jpe?g|png|webp|gif|avif)/gi)) {
+    push(m[0]);
+  }
+  return uniq(out);
+}
+
+function buildFromHtml(html: string, baseUrl: string, allImages?: string[]) {
   const title = decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").split(/[|\-–]/)[0]);
   const name = metaContent(html, "og:site_name") || title || new URL(baseUrl).hostname;
 
@@ -55,11 +90,8 @@ function buildFromHtml(html: string, baseUrl: string) {
     (html.match(/<link\b[^>]*?rel\s*=\s*["'][^"']*icon[^"']*["'][^>]*?href\s*=\s*["']([^"']+)["']/i)?.[1] ??
       "") || "";
 
-  const images = uniq(
-    Array.from(html.matchAll(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi))
-      .map((m) => abs(m[1], baseUrl) ?? "")
-      .filter((u) => /^https?:/i.test(u) && !/\.svg(\?|$)/i.test(u)),
-  );
+  const images = allImages?.length ? uniq(allImages) : collectImages(html, baseUrl);
+
 
   const logo =
     images.find((u) => /logo/i.test(u)) || metaContent(html, "og:image") || images[0] || "";
@@ -200,9 +232,10 @@ function buildFromHtml(html: string, baseUrl: string) {
     Activo: false,
     autoGntLandingFromService: false,
     FechaCreacion: new Date().toISOString(),
-    gallery: images.slice(0, 60),
+    gallery: images,
     stock: [] as string[],
-    landings: [{ name: "Our Recent Project", description: "", gallery: images.slice(0, 60) }],
+    landings: [{ name: "Our Recent Project", description: "", gallery: images }],
+
     works: [] as unknown[],
     videosPromo: [] as unknown[],
     tiposPago: [] as unknown[],
@@ -278,11 +311,44 @@ export const fetchSiteData = createServerFn({ method: "POST" })
       if (!page) {
         return { source: null, data: null, error: "No se pudo leer el sitio web.", notes };
       }
-      const built = buildFromHtml(page.html, page.finalUrl) as unknown as SiteData;
+
+      const origin = new URL(page.finalUrl).origin;
+      const internal = uniq(
+        Array.from(page.html.matchAll(/href\s*=\s*["']([^"'#]+)["']/gi))
+          .map((m) => abs(m[1], page.finalUrl) ?? "")
+          .filter((u) => u.startsWith(origin) && !IMG_EXT.test(u) && !/\.(pdf|zip|mp4)$/i.test(u)),
+      ).filter((u) => u !== page.finalUrl);
+
+      const priority = internal
+        .sort((a, b) => {
+          const w = (u: string) =>
+            /gallery|galer|project|portfolio|work|service|about|contact/i.test(u) ? 0 : 1;
+          return w(a) - w(b);
+        })
+        .slice(0, 12);
+
+      const pages = await Promise.all(priority.map((u) => fetchHtml(u)));
+      const extraHtml: string[] = [];
+      let images = collectImages(page.html, page.finalUrl);
+      for (const p of pages) {
+        if (!p) continue;
+        extraHtml.push(p.html);
+        images = images.concat(collectImages(p.html, p.finalUrl));
+      }
+      images = uniq(images);
+
+      const built = buildFromHtml(
+        [page.html, ...extraHtml].join("\n"),
+        page.finalUrl,
+        images,
+      ) as unknown as SiteData;
       (built as { docId: string }).docId = data.id ?? "";
-      notes.push("Data generada extrayendo el sitio web.");
+      notes.push(
+        `Data generada extrayendo el sitio web (${1 + extraHtml.length} páginas, ${images.length} imágenes).`,
+      );
       return { source: "scrape", data: built, error: null, notes };
     }
+
 
     return {
       source: null,
