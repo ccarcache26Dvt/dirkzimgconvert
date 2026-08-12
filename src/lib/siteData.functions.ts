@@ -232,9 +232,10 @@ function buildFromHtml(html: string, baseUrl: string, allImages?: string[]) {
     Activo: false,
     autoGntLandingFromService: false,
     FechaCreacion: new Date().toISOString(),
-    gallery: images.slice(0, 60),
+    gallery: images,
     stock: [] as string[],
-    landings: [{ name: "Our Recent Project", description: "", gallery: images.slice(0, 60) }],
+    landings: [{ name: "Our Recent Project", description: "", gallery: images }],
+
     works: [] as unknown[],
     videosPromo: [] as unknown[],
     tiposPago: [] as unknown[],
