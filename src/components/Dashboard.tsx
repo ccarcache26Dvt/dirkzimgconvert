@@ -20,10 +20,12 @@ import { UrlImageExtractor } from "@/components/UrlImageExtractor";
 import { MejorarCalidadImg } from "@/components/MejorarCalidadImg";
 import { ChatsImg } from "@/components/ChatsImg";
 import { SemitonoAi } from "@/components/SemitonoAi";
+import { SiteDataApi } from "@/components/SiteDataApi";
 import logoRoyal from "@/assets/logo-royal.png";
 import {
   CircleDot,
   Download,
+  Database,
   ExternalLink,
   Image as ImageIcon,
   Link as LinkIcon,
@@ -32,7 +34,7 @@ import {
   Wand2,
 } from "lucide-react";
 
-type SectionKey = "convert" | "url" | "enhance" | "generate" | "semitono" | "extension";
+type SectionKey = "convert" | "url" | "enhance" | "generate" | "semitono" | "data" | "extension";
 
 const items: { key: SectionKey; title: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "convert", title: "Convertir / Comprimir", icon: ImageIcon },
@@ -40,6 +42,7 @@ const items: { key: SectionKey; title: string; icon: React.ComponentType<{ class
   { key: "enhance", title: "Mejorar calidad IA", icon: Sparkles },
   { key: "generate", title: "Generar imagen IA", icon: Wand2 },
   { key: "semitono", title: "Semitono AI", icon: CircleDot },
+  { key: "data", title: "Data Request", icon: Database },
   { key: "extension", title: "Extensión Chrome", icon: Puzzle },
 ];
 
@@ -166,6 +169,11 @@ export function Dashboard() {
             {section === "semitono" && (
               <div className="mx-auto max-w-7xl px-4 py-8">
                 <SemitonoAi />
+              </div>
+            )}
+            {section === "data" && (
+              <div className="mx-auto max-w-5xl px-6 py-10">
+                <SiteDataApi />
               </div>
             )}
             {section === "extension" && <ExtensionView />}
