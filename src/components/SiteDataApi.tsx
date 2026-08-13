@@ -1,7 +1,7 @@
 import { useState } from "react";
 import JSZip from "jszip";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchSiteData, type SiteDataResult } from "@/lib/siteData.functions";
+import { fetchSiteData, proxyImage, type SiteDataResult } from "@/lib/siteData.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
