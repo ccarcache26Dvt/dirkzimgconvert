@@ -415,10 +415,14 @@ export const fetchSiteData = createServerFn({ method: "POST" })
       try {
         const res = await fetch(`${apiUrl}/${encodeURIComponent(data.id)}`, {
           headers: {
-            "x-api-key": apiKey,
-            "api-key": apiKey,
-            Authorization: `Bearer ${apiKey}`,
             Accept: "application/json",
+            ...(apiKey
+              ? {
+                  "x-api-key": apiKey,
+                  "api-key": apiKey,
+                  Authorization: `Bearer ${apiKey}`,
+                }
+              : {}),
           },
         });
         const text = await res.text();
