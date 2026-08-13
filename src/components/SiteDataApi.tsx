@@ -54,21 +54,11 @@ export function SiteDataApi() {
   const services = (data?.["dbServices"] ?? []) as Anyish[];
   const redes = ((data?.["dbSocialMedia"] as Anyish)?.["redes"] ?? []) as Anyish[];
 
-  const allImages: string[] = Array.from(
-    new Set(
-      [
-        ...gallery,
-        ...(((data?.["landings"] as Anyish[]) ?? []).flatMap(
-          (l) => (l["gallery"] as string[]) ?? [],
-        )),
-        ...(((data?.["stock"] as string[]) ?? [])),
-        ...services.flatMap((s) =>
-          (((s["description"] as Anyish[]) ?? []).map((d) => String(d["img"] ?? ""))),
-        ),
-        String(principal["logo"] ?? ""),
-      ].filter((u) => typeof u === "string" && /^https?:/i.test(u)),
-    ),
-  );
+  const allImages: string[] = (() => {
+    const set = new Set<string>();
+    collectImageUrls(data, set);
+    return Array.from(set);
+  })();
 
   const downloadAll = async () => {
     if (allImages.length === 0) return;
