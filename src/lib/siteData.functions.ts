@@ -406,7 +406,9 @@ export const fetchSiteData = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<SiteDataResult> => {
     const notes: string[] = [];
-    const apiUrl = process.env["REAKTORX_API_URL"] ?? "";
+    const apiUrl = (
+      process.env["REAKTORX_API_URL"] || "https://servidorpublico.herokuapp.com/api/paginas"
+    ).replace(/\/+$/, "");
     const apiKey = process.env["REAKTORX_API_KEY"] ?? "";
 
     if (data.id) {
