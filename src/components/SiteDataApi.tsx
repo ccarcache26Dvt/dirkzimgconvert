@@ -50,7 +50,7 @@ export function SiteDataApi() {
 
   const data = (result?.data ?? null) as Anyish | null;
   const principal = (data?.["dbPrincipal"] ?? {}) as Anyish;
-  const gallery = (data?.["gallery"] ?? []) as string[];
+  
   const services = (data?.["dbServices"] ?? []) as Anyish[];
   const redes = ((data?.["dbSocialMedia"] as Anyish)?.["redes"] ?? []) as Anyish[];
 
