@@ -69,17 +69,33 @@ export function SiteDataApi() {
       let ok = 0;
       await Promise.all(
         allImages.map(async (u, i) => {
+          let blob: Blob | null = null;
           try {
             const r = await fetch(u, { mode: "cors" });
-            if (!r.ok) throw new Error(String(r.status));
-            const blob = await r.blob();
-            const base = (u.split("?")[0].split("/").pop() || `image-${i}`).slice(-80);
-            const name = /\.\w{2,5}$/.test(base) ? base : `${base}.jpg`;
-            folder.file(folder.file(name) ? `${i}_${name}` : name, blob);
-            ok++;
+            if (r.ok) blob = await r.blob();
           } catch {
-            /* CORS or network */
+            /* CORS: usamos el proxy del servidor */
           }
+          if (!blob) {
+            try {
+              const p = await proxy({ data: { url: u } });
+              if (p.base64) {
+                const bin = atob(p.base64);
+                const bytes = new Uint8Array(bin.length);
+                for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+                blob = new Blob([bytes], { type: p.contentType ?? "image/jpeg" });
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          if (!blob) return;
+          const base = decodeURIComponent(
+            (u.split("?")[0].split("/").pop() || `image-${i}`),
+          ).slice(-80);
+          const name = /\.\w{2,5}$/.test(base) ? base : `${base}.jpg`;
+          folder.file(folder.file(name) ? `${i}_${name}` : name, blob);
+          ok++;
         }),
       );
       if (ok === 0) {
