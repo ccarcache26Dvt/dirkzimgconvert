@@ -21,9 +21,27 @@ function Row({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function collectImageUrls(node: unknown, out: Set<string>) {
+  if (typeof node === "string") {
+    const s = node.trim();
+    if (/^https?:\/\//i.test(s) && (/\.(jpe?g|png|webp|gif|avif|svg|bmp|tiff?)(\?|$)/i.test(s) || /firebasestorage\.googleapis\.com/i.test(s))) {
+      out.add(s);
+    }
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const v of node) collectImageUrls(v, out);
+    return;
+  }
+  if (node && typeof node === "object") {
+    for (const v of Object.values(node as Anyish)) collectImageUrls(v, out);
+  }
+}
+
 export function SiteDataApi() {
   const run = useServerFn(fetchSiteData);
-  const [id, setId] = useState("68643fb55157c8ed0131837b");
+  const proxy = useServerFn(proxyImage);
+  const [id, setId] = useState("64cac171f9e772919ea9e2d5");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SiteDataResult | null>(null);
