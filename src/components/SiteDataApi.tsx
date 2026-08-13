@@ -1,7 +1,7 @@
 import { useState } from "react";
 import JSZip from "jszip";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchSiteData, type SiteDataResult } from "@/lib/siteData.functions";
+import { fetchSiteData, proxyImage, type SiteDataResult } from "@/lib/siteData.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -21,9 +21,27 @@ function Row({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function collectImageUrls(node: unknown, out: Set<string>) {
+  if (typeof node === "string") {
+    const s = node.trim();
+    if (/^https?:\/\//i.test(s) && (/\.(jpe?g|png|webp|gif|avif|svg|bmp|tiff?)(\?|$)/i.test(s) || /firebasestorage\.googleapis\.com/i.test(s))) {
+      out.add(s);
+    }
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const v of node) collectImageUrls(v, out);
+    return;
+  }
+  if (node && typeof node === "object") {
+    for (const v of Object.values(node as Anyish)) collectImageUrls(v, out);
+  }
+}
+
 export function SiteDataApi() {
   const run = useServerFn(fetchSiteData);
-  const [id, setId] = useState("68643fb55157c8ed0131837b");
+  const proxy = useServerFn(proxyImage);
+  const [id, setId] = useState("64cac171f9e772919ea9e2d5");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SiteDataResult | null>(null);
@@ -32,25 +50,15 @@ export function SiteDataApi() {
 
   const data = (result?.data ?? null) as Anyish | null;
   const principal = (data?.["dbPrincipal"] ?? {}) as Anyish;
-  const gallery = (data?.["gallery"] ?? []) as string[];
+  
   const services = (data?.["dbServices"] ?? []) as Anyish[];
   const redes = ((data?.["dbSocialMedia"] as Anyish)?.["redes"] ?? []) as Anyish[];
 
-  const allImages: string[] = Array.from(
-    new Set(
-      [
-        ...gallery,
-        ...(((data?.["landings"] as Anyish[]) ?? []).flatMap(
-          (l) => (l["gallery"] as string[]) ?? [],
-        )),
-        ...(((data?.["stock"] as string[]) ?? [])),
-        ...services.flatMap((s) =>
-          (((s["description"] as Anyish[]) ?? []).map((d) => String(d["img"] ?? ""))),
-        ),
-        String(principal["logo"] ?? ""),
-      ].filter((u) => typeof u === "string" && /^https?:/i.test(u)),
-    ),
-  );
+  const allImages: string[] = (() => {
+    const set = new Set<string>();
+    collectImageUrls(data, set);
+    return Array.from(set);
+  })();
 
   const downloadAll = async () => {
     if (allImages.length === 0) return;
@@ -61,17 +69,33 @@ export function SiteDataApi() {
       let ok = 0;
       await Promise.all(
         allImages.map(async (u, i) => {
+          let blob: Blob | null = null;
           try {
             const r = await fetch(u, { mode: "cors" });
-            if (!r.ok) throw new Error(String(r.status));
-            const blob = await r.blob();
-            const base = (u.split("?")[0].split("/").pop() || `image-${i}`).slice(-80);
-            const name = /\.\w{2,5}$/.test(base) ? base : `${base}.jpg`;
-            folder.file(folder.file(name) ? `${i}_${name}` : name, blob);
-            ok++;
+            if (r.ok) blob = await r.blob();
           } catch {
-            /* CORS or network */
+            /* CORS: usamos el proxy del servidor */
           }
+          if (!blob) {
+            try {
+              const p = await proxy({ data: { url: u } });
+              if (p.base64) {
+                const bin = atob(p.base64);
+                const bytes = new Uint8Array(bin.length);
+                for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+                blob = new Blob([bytes], { type: p.contentType ?? "image/jpeg" });
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          if (!blob) return;
+          const base = decodeURIComponent(
+            (u.split("?")[0].split("/").pop() || `image-${i}`),
+          ).slice(-80);
+          const name = /\.\w{2,5}$/.test(base) ? base : `${base}.jpg`;
+          folder.file(folder.file(name) ? `${i}_${name}` : name, blob);
+          ok++;
         }),
       );
       if (ok === 0) {

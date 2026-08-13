@@ -406,17 +406,23 @@ export const fetchSiteData = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<SiteDataResult> => {
     const notes: string[] = [];
-    const apiUrl = process.env["REAKTORX_API_URL"] ?? "";
+    const apiUrl = (
+      process.env["REAKTORX_API_URL"] || "https://servidorpublico.herokuapp.com/api/paginas"
+    ).replace(/\/+$/, "");
     const apiKey = process.env["REAKTORX_API_KEY"] ?? "";
 
     if (data.id) {
       try {
         const res = await fetch(`${apiUrl}/${encodeURIComponent(data.id)}`, {
           headers: {
-            "x-api-key": apiKey,
-            "api-key": apiKey,
-            Authorization: `Bearer ${apiKey}`,
             Accept: "application/json",
+            ...(apiKey
+              ? {
+                  "x-api-key": apiKey,
+                  "api-key": apiKey,
+                  Authorization: `Bearer ${apiKey}`,
+                }
+              : {}),
           },
         });
         const text = await res.text();
@@ -487,4 +493,31 @@ export const fetchSiteData = createServerFn({ method: "POST" })
         : "Ingresa un ID o una URL.",
       notes,
     };
+  });
+
+export const proxyImage = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ url: z.string().trim().url().max(2048) }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const res = await fetch(data.url, { redirect: "follow" });
+      if (!res.ok) return { base64: null, contentType: null, error: `HTTP ${res.status}` };
+      const buf = new Uint8Array(await res.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < buf.length; i += 0x8000) {
+        bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      }
+      return {
+        base64: btoa(bin),
+        contentType: res.headers.get("content-type") ?? "application/octet-stream",
+        error: null as string | null,
+      };
+    } catch (err) {
+      return {
+        base64: null,
+        contentType: null,
+        error: err instanceof Error ? err.message : "error",
+      };
+    }
   });
