@@ -55,9 +55,6 @@ async function urlToBase64(url: string): Promise<string> {
   });
 }
 
-const REMOVE_BG_PROMPT =
-  "Remove the background of this image completely. Keep ONLY the main subject perfectly intact with clean, sharp edges. Replace the background with full transparency (alpha channel). Do not crop, do not change the framing, do not add shadows or borders. Return a PNG with transparent background. Then write a short Spanish note: 'Fondo eliminado, sujeto preservado con bordes limpios.'";
-
 export function MejorarCalidadImg() {
   const callEnhance = useServerFn(enhanceImage);
   const inputRef = useRef<HTMLInputElement>(null);
