@@ -55,9 +55,6 @@ async function urlToBase64(url: string): Promise<string> {
   });
 }
 
-const REMOVE_BG_PROMPT =
-  "Remove the background of this image completely. Keep ONLY the main subject perfectly intact with clean, sharp edges. Replace the background with full transparency (alpha channel). Do not crop, do not change the framing, do not add shadows or borders. Return a PNG with transparent background. Then write a short Spanish note: 'Fondo eliminado, sujeto preservado con bordes limpios.'";
-
 export function MejorarCalidadImg() {
   const callEnhance = useServerFn(enhanceImage);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -175,7 +172,45 @@ export function MejorarCalidadImg() {
   };
 
   const removeBackground = async () => {
-    await reprocessAll(REMOVE_BG_PROMPT, "🪄 Quitar fondo de las imágenes");
+    if (items.length === 0) {
+      toast.error("Primero sube al menos una imagen");
+      return;
+    }
+    pushChat({ role: "user", text: "🪄 Quitar fondo de las imágenes" });
+    setBusy(true);
+    try {
+      const { removeBackground: imglyRemoveBg } = await import(
+        "@imgly/background-removal"
+      );
+      for (const it of items) {
+        setItems((prev) =>
+          prev.map((p) => (p.id === it.id ? { ...p, status: "loading" } : p))
+        );
+        try {
+          const srcBlob = await (await fetch(it.originalUrl)).blob();
+          const out = await imglyRemoveBg(srcBlob, { output: { format: "image/png" } });
+          const url = URL.createObjectURL(out);
+          setItems((prev) =>
+            prev.map((p) =>
+              p.id === it.id ? { ...p, resultUrl: url, status: "done" } : p
+            )
+          );
+          pushChat({
+            role: "ai",
+            text: `✂️ ${it.name}\nFondo eliminado con transparencia real (PNG con canal alfa).`,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Error";
+          setItems((prev) =>
+            prev.map((p) => (p.id === it.id ? { ...p, status: "error", error: msg } : p))
+          );
+          pushChat({ role: "ai", text: `❌ ${it.name}: ${msg}` });
+        }
+      }
+      toast.success("Fondo eliminado");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onDrop = (e: React.DragEvent) => {
