@@ -175,7 +175,45 @@ export function MejorarCalidadImg() {
   };
 
   const removeBackground = async () => {
-    await reprocessAll(REMOVE_BG_PROMPT, "🪄 Quitar fondo de las imágenes");
+    if (items.length === 0) {
+      toast.error("Primero sube al menos una imagen");
+      return;
+    }
+    pushChat({ role: "user", text: "🪄 Quitar fondo de las imágenes" });
+    setBusy(true);
+    try {
+      const { removeBackground: imglyRemoveBg } = await import(
+        "@imgly/background-removal"
+      );
+      for (const it of items) {
+        setItems((prev) =>
+          prev.map((p) => (p.id === it.id ? { ...p, status: "loading" } : p))
+        );
+        try {
+          const srcBlob = await (await fetch(it.originalUrl)).blob();
+          const out = await imglyRemoveBg(srcBlob, { output: { format: "image/png" } });
+          const url = URL.createObjectURL(out);
+          setItems((prev) =>
+            prev.map((p) =>
+              p.id === it.id ? { ...p, resultUrl: url, status: "done" } : p
+            )
+          );
+          pushChat({
+            role: "ai",
+            text: `✂️ ${it.name}\nFondo eliminado con transparencia real (PNG con canal alfa).`,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Error";
+          setItems((prev) =>
+            prev.map((p) => (p.id === it.id ? { ...p, status: "error", error: msg } : p))
+          );
+          pushChat({ role: "ai", text: `❌ ${it.name}: ${msg}` });
+        }
+      }
+      toast.success("Fondo eliminado");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onDrop = (e: React.DragEvent) => {
