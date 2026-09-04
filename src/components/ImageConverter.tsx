@@ -150,7 +150,12 @@ export function ImageConverter() {
         });
       } catch (err) {
         console.error(err);
-        toast.error(`Error con ${images[i].name}`);
+        const msg = err instanceof Error ? err.message : "";
+        toast.error(`Error con ${images[i].name}`, {
+          description: msg.includes("HEIC")
+            ? "Este HEIC usa una variante no soportada por tu navegador. Ábrelo en Safari o expórtalo como JPG."
+            : msg || "No se pudo convertir",
+        });
       }
       setProgress({ done: i + 1, total: images.length });
     }
