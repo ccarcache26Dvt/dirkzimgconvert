@@ -43,22 +43,51 @@ async function decodeHeic(file: File): Promise<Blob> {
   if (typeof window === "undefined") {
     throw new Error("La conversión HEIC solo está disponible en el navegador");
   }
+
+  const errors: string[] = [];
+
   // Intento 1: heic-to (más moderno, soporta más variantes HEIF/HEVC)
   try {
     const { heicTo } = await import("heic-to");
     const blob = await heicTo({ blob: file, type: "image/png", quality: 0.95 });
-    return blob as Blob;
+    if (blob && blob.size > 0) return blob as Blob;
+    throw new Error("resultado vacío");
   } catch (err1) {
-    // Intento 2: heic2any como fallback
-    try {
-      const { default: heic2any } = await import("heic2any");
-      const result = await heic2any({ blob: file, toType: "image/png" });
-      return Array.isArray(result) ? result[0] : result;
-    } catch (err2) {
-      const msg = (err2 as Error)?.message || (err1 as Error)?.message || "formato HEIC no soportado";
-      throw new Error(`No se pudo decodificar HEIC: ${msg}`);
-    }
+    errors.push(`heic-to: ${(err1 as Error)?.message || err1}`);
   }
+
+  // Intento 2: heic2any como fallback
+  try {
+    const { default: heic2any } = await import("heic2any");
+    const result = await heic2any({ blob: file, toType: "image/png", quality: 0.95 });
+    const blob = (Array.isArray(result) ? result[0] : result) as Blob;
+    if (blob && blob.size > 0) return blob;
+    throw new Error("resultado vacío");
+  } catch (err2) {
+    errors.push(`heic2any: ${(err2 as Error)?.message || err2}`);
+  }
+
+  // Intento 3: decodificación nativa del navegador (Safari/iOS/macOS soporta HEIC en <img>)
+  try {
+    const img = await blobToImage(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas no soportado");
+    ctx.drawImage(img, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/png"),
+    );
+    if (blob && blob.size > 0) return blob;
+    throw new Error("resultado vacío");
+  } catch (err3) {
+    errors.push(`nativo: ${(err3 as Error)?.message || err3}`);
+  }
+
+  throw new Error(
+    `No se pudo decodificar el HEIC (${file.name}). Prueba en Safari o exporta la foto como JPG desde el iPhone. Detalle: ${errors.join(" | ")}`,
+  );
 }
 
 async function decodeTiff(file: File): Promise<Blob> {
