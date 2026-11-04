@@ -1,8 +1,9 @@
-import { createRouter, useRouter } from "@tanstack/react-router";
+import { createRouter, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
-function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function DefaultErrorComponent({ error: rawError, reset }: ErrorComponentProps) {
   const router = useRouter();
+  const error = rawError instanceof Error ? rawError : new Error(String(rawError));
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
