@@ -34,6 +34,20 @@ export const Route = createFileRoute("/api/generate-image")({
 
         if (!upstream.ok || !upstream.body) {
           const text = await upstream.text().catch(() => "");
+          if (upstream.status === 402) {
+            return new Response(
+              "Créditos de IA agotados: ya se usó el saldo gratis de IA de este mes (4 créditos). " +
+                "En plan Free no se pueden comprar créditos; necesitas un plan de pago " +
+                "(Workspace settings → Plans & credit usage) o esperar a que el saldo gratis se renueve " +
+                "el 1 de diciembre a las 00:00 UTC (18:00 de Managua del 30 de noviembre).",
+              { status: 402 },
+            );
+          }
+          if (upstream.status === 429) {
+            return new Response("Límite de uso alcanzado. Intenta en unos minutos.", {
+              status: 429,
+            });
+          }
           return new Response(text || "Error generando imagen", {
             status: upstream.status,
           });

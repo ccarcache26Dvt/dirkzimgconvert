@@ -46,7 +46,13 @@ export const enhanceImage = createServerFn({ method: "POST" })
     if (!res.ok) {
       const text = await res.text();
       if (res.status === 429) throw new Error("Límite de uso alcanzado. Intenta en unos minutos.");
-      if (res.status === 402) throw new Error("Créditos de IA agotados. Añade créditos en Settings → Workspace → Usage.");
+      if (res.status === 402)
+        throw new Error(
+          "Créditos de IA agotados: ya se usó el saldo gratis de IA de este mes (4 créditos). " +
+            "En plan Free no se pueden comprar créditos; necesitas un plan de pago " +
+            "(Workspace settings → Plans & credit usage) o esperar a que el saldo gratis se renueve " +
+            "el 1 de diciembre a las 00:00 UTC (18:00 de Managua del 30 de noviembre).",
+        );
       throw new Error(`Error IA (${res.status}): ${text.slice(0, 200)}`);
     }
 
